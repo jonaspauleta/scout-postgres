@@ -17,7 +17,7 @@ final class ScoutPostgresServiceProvider extends PackageServiceProvider
         $package
             ->name('scout-postgres')
             ->hasConfigFile('scout-postgres')
-            ->hasMigration('create_postgres_search_extensions')
+            ->hasMigration('0000_01_01_000000_create_postgres_search_extensions')
             ->runsMigrations();
     }
 
