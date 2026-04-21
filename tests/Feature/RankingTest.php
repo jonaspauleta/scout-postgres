@@ -20,15 +20,15 @@ test('title matches rank above summary matches', function (): void {
 
     $results = Book::search('tulips')->get();
 
-    expect($results->first()->id)->toBe($titleMatch->id)
-        ->and($results->last()->id)->toBe($summaryMatch->id);
+    expect($results->first()?->getKey())->toBe($titleMatch->id);
+    expect($results->last()?->getKey())->toBe($summaryMatch->id);
 });
 
 test('exact match ranks above prefix-only', function (): void {
-    $prefix = Book::factory()->create(['title' => 'Tulipanomania', 'author' => '', 'summary' => '']);
+    Book::factory()->create(['title' => 'Tulipanomania', 'author' => '', 'summary' => '']);
     $exact = Book::factory()->create(['title' => 'Tulip', 'author' => '', 'summary' => '']);
 
     $results = Book::search('Tulip')->get();
 
-    expect($results->first()->id)->toBe($exact->id);
+    expect($results->first()?->getKey())->toBe($exact->id);
 });

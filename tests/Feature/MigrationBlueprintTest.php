@@ -23,8 +23,12 @@ test('generated columns populate on insert', function (): void {
 
     $row = DB::table('books')->select('search_vector', 'search_text')->first();
 
-    expect($row->search_text)->toContain('Nürburgring')
-        ->and((string) $row->search_vector)->toContain('nurburgring'); // unaccented
+    expect($row)->not->toBeNull();
+    $searchText = is_object($row) && isset($row->search_text) && is_string($row->search_text) ? $row->search_text : '';
+    $searchVector = is_object($row) && isset($row->search_vector) && (is_string($row->search_vector) || is_scalar($row->search_vector)) ? (string) $row->search_vector : '';
+
+    expect($searchText)->toContain('Nürburgring');
+    expect($searchVector)->toContain('nurburgring'); // unaccented
 });
 
 test('GIN indexes exist for both search columns', function (): void {

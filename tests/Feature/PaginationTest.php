@@ -14,9 +14,9 @@ test('paginate returns a LengthAwarePaginator with correct total', function (): 
     $page1 = Book::search('match')->paginate(10, 'page', 1);
     $page3 = Book::search('match')->paginate(10, 'page', 3);
 
-    expect($page1->total())->toBe(25)
-        ->and($page1->count())->toBe(10)
-        ->and($page3->count())->toBe(5);
+    expect($page1->total())->toBe(25);
+    expect($page1->items())->toHaveCount(10);
+    expect($page3->items())->toHaveCount(5);
 });
 
 test('take limits non-paginated results', function (): void {

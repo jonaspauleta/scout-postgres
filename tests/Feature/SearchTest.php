@@ -12,8 +12,8 @@ test('matches exact title', function (): void {
 
     $results = Book::search('Nürburgring')->get();
 
-    expect($results)->toHaveCount(1)
-        ->and($results->first()->title)->toBe('Nürburgring Racing');
+    expect($results)->toHaveCount(1);
+    expect($results->first()?->title)->toBe('Nürburgring Racing');
 });
 
 test('matches accent-insensitive', function (): void {

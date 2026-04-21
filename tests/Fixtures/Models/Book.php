@@ -13,11 +13,21 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Laravel\Scout\Searchable;
 use Override;
 
+/**
+ * @property int $id
+ * @property string|null $title
+ * @property string|null $author
+ * @property string|null $summary
+ *
+ * @method static BookFactory factory($count = null, $state = [])
+ */
 #[Hidden(['search_vector', 'search_text'])]
 #[Table(name: 'books')]
 final class Book extends Model
 {
+    /** @use HasFactory<BookFactory> */
     use HasFactory;
+
     use Searchable;
     use SoftDeletes;
 

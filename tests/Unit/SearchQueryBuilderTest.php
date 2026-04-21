@@ -6,16 +6,39 @@ namespace ApexScout\ScoutPostgres\Tests\Unit;
 
 use ApexScout\ScoutPostgres\Query\SearchQueryBuilder;
 use ApexScout\ScoutPostgres\Tests\Fixtures\Models\Book;
+use Illuminate\Database\Eloquent\Model;
 use Laravel\Scout\Builder;
+use RuntimeException;
 
+/**
+ * @param  array<string, array<int, mixed>>  $options
+ * @return Builder<Model>
+ */
 function makeBuilder(string $query, array $options = []): Builder
 {
+    /** @var Builder<Model> $builder */
     $builder = new Builder(new Book, $query);
     foreach ($options as $method => $args) {
-        $builder = $builder->{$method}(...$args);
+        $result = $builder->{$method}(...$args);
+        if ($result instanceof Builder) {
+            $builder = $result;
+        }
     }
 
     return $builder;
+}
+
+/**
+ * @param  array<string, array<int, mixed>>  $options
+ */
+function compile(string $query, array $options = []): SearchQueryBuilder
+{
+    $result = SearchQueryBuilder::forSearch(makeBuilder($query, $options));
+    if (! $result instanceof SearchQueryBuilder) {
+        throw new RuntimeException('SearchQueryBuilder::forSearch returned null');
+    }
+
+    return $result;
 }
 
 test('empty query yields no SQL (engine short-circuits before reaching builder)', function (): void {
@@ -25,10 +48,9 @@ test('empty query yields no SQL (engine short-circuits before reaching builder)'
 });
 
 test('canonical query produces parameterised SQL', function (): void {
-    $result = SearchQueryBuilder::forSearch(makeBuilder('jon'));
+    $result = compile('jon');
 
-    expect($result)->not->toBeNull()
-        ->and($result->sql)->toContain('FROM "books"')
+    expect($result->sql)->toContain('FROM "books"')
         ->and($result->sql)->toContain('websearch_to_tsquery')
         ->and($result->sql)->toContain('search_vector')
         ->and($result->sql)->toContain('search_text')
@@ -42,44 +64,38 @@ test('canonical query produces parameterised SQL', function (): void {
 });
 
 test('wheres become parameterised equality filters', function (): void {
-    $builder = makeBuilder('jon', ['where' => ['status', 'active']]);
-    $result = SearchQueryBuilder::forSearch($builder);
+    $result = compile('jon', ['where' => ['status', 'active']]);
 
     expect($result->sql)->toContain('AND "status" = ');
 });
 
 test('wheres support comparison operators', function (): void {
-    $builder = makeBuilder('jon', ['where' => ['price', '>', 100]]);
-    $result = SearchQueryBuilder::forSearch($builder);
+    $result = compile('jon', ['where' => ['price', '>', 100]]);
 
     expect($result->sql)->toContain('AND "price" > ');
 });
 
 test('whereIns become IN clauses', function (): void {
-    $builder = makeBuilder('jon', ['whereIn' => ['status', ['a', 'b']]]);
-    $result = SearchQueryBuilder::forSearch($builder);
+    $result = compile('jon', ['whereIn' => ['status', ['a', 'b']]]);
 
     expect($result->sql)->toContain('AND "status" IN (');
 });
 
 test('__soft_deleted=0 translates to IS NULL', function (): void {
-    $builder = makeBuilder('jon', ['where' => ['__soft_deleted', 0]]);
-    $result = SearchQueryBuilder::forSearch($builder);
+    $result = compile('jon', ['where' => ['__soft_deleted', 0]]);
 
     expect($result->sql)->toContain('"deleted_at" IS NULL')
         ->and($result->sql)->not->toContain('__soft_deleted');
 });
 
 test('__soft_deleted=1 translates to IS NOT NULL', function (): void {
-    $builder = makeBuilder('jon', ['where' => ['__soft_deleted', 1]]);
-    $result = SearchQueryBuilder::forSearch($builder);
+    $result = compile('jon', ['where' => ['__soft_deleted', 1]]);
 
     expect($result->sql)->toContain('"deleted_at" IS NOT NULL');
 });
 
 test('explicit orders override default _score DESC', function (): void {
-    $builder = makeBuilder('jon', ['orderBy' => ['title', 'asc']]);
-    $result = SearchQueryBuilder::forSearch($builder);
+    $result = compile('jon', ['orderBy' => ['title', 'asc']]);
 
     expect($result->sql)->toContain('ORDER BY "title" asc')
         ->and($result->sql)->not->toContain('ORDER BY _score DESC');
@@ -87,6 +103,9 @@ test('explicit orders override default _score DESC', function (): void {
 
 test('pagination adds LIMIT and OFFSET', function (): void {
     $result = SearchQueryBuilder::forPaginate(makeBuilder('jon'), perPage: 20, page: 3);
+    if (! $result instanceof SearchQueryBuilder) {
+        throw new RuntimeException('SearchQueryBuilder::forPaginate returned null');
+    }
 
     expect($result->sql)->toContain('LIMIT 20')
         ->and($result->sql)->toContain('OFFSET 40');
