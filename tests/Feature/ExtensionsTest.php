@@ -24,5 +24,4 @@ test('migration installs pg_trgm, unaccent, and simple_unaccent config', functio
 test('migration is idempotent', function (): void {
     DB::statement('CREATE EXTENSION IF NOT EXISTS pg_trgm');
     DB::statement('CREATE EXTENSION IF NOT EXISTS unaccent');
-    expect(true)->toBeTrue();
 })->throwsNoExceptions();
