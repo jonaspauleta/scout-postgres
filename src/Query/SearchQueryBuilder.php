@@ -73,10 +73,19 @@ final readonly class SearchQueryBuilder
         $model = $builder->model;
         $table = $builder->index ?? $model->getTable();
 
+        $prefixQuery = QueryEscaper::buildPrefixQuery($query);
+        $rawTrigram = QueryEscaper::normaliseForTrigram($query);
+
+        // PDO_PGSQL with native prepares (Laravel's default) rewrites each `:name`
+        // occurrence into a separate $n placeholder. Any named placeholder that
+        // appears more than once in the SQL must have a distinct binding per
+        // occurrence. We duplicate `:raw` under `:raw_trgm` and branch on the
+        // prefix query in PHP so `:prefix_query` appears at most once.
         $bindings = [
             'query' => $query,
-            'prefix_query' => QueryEscaper::buildPrefixQuery($query),
-            'raw' => QueryEscaper::normaliseForTrigram($query),
+            'prefix_query' => $prefixQuery,
+            'raw' => $rawTrigram,
+            'raw_trgm' => $rawTrigram,
         ];
 
         $config = self::resolveConfig($model);
@@ -98,11 +107,19 @@ final readonly class SearchQueryBuilder
         $tsConfig = $config['text_search_config'];
         $weightsArray = '{'.implode(',', $config['rank_weights']).'}';
 
+        $pfxExpr = $prefixQuery === ''
+            ? 'NULL'
+            : sprintf("to_tsquery('%s', :prefix_query)", $tsConfig);
+
+        if ($prefixQuery === '') {
+            unset($bindings['prefix_query']);
+        }
+
         $sql = <<<SQL
 WITH q AS (
   SELECT
     websearch_to_tsquery('{$tsConfig}', :query) AS ws,
-    (CASE WHEN :prefix_query = '' THEN NULL ELSE to_tsquery('{$tsConfig}', :prefix_query) END) AS pfx
+    {$pfxExpr} AS pfx
 )
 SELECT "{$model->getKeyName()}" AS id,
   (
@@ -117,7 +134,7 @@ SELECT "{$model->getKeyName()}" AS id,
 FROM "{$table}", q
 WHERE (
     search_vector @@ COALESCE(q.ws && q.pfx, q.ws)
-    OR search_text % :raw
+    OR search_text % :raw_trgm
 ){$wheresSql}{$whereInsSql}{$whereNotInsSql}
 {$orderSql}{$limitSql}
 SQL;

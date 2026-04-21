@@ -11,7 +11,7 @@ use Illuminate\Support\Collection;
 use Laravel\Scout\Builder;
 
 test('write methods are no-ops', function (): void {
-    $engine = app(PostgresEngine::class);
+    $engine = resolve(PostgresEngine::class);
 
     $engine->update(Collection::make([]));
     $engine->delete(Collection::make([]));
@@ -36,7 +36,7 @@ test('search returns hits and total', function (): void {
 test('mapIds returns primary keys', function (): void {
     $book = Book::factory()->create(['title' => 'Zanzibar']);
 
-    $engine = app(PostgresEngine::class);
+    $engine = resolve(PostgresEngine::class);
     $builder = new Builder(new Book(), 'zanzibar');
     $results = $engine->search($builder);
 
@@ -44,8 +44,10 @@ test('mapIds returns primary keys', function (): void {
 });
 
 test('map preserves score order', function (): void {
-    $b1 = Book::factory()->create(['title' => 'Zanzibar Zebra']);
-    $b2 = Book::factory()->create(['title' => 'Zanzibar']);
+    // Fix author/summary to empty so the trigram similarity signal is dominated
+    // by the title alone; otherwise random faker copy drowns the score delta.
+    $b1 = Book::factory()->create(['title' => 'Zanzibar Zebra', 'author' => '', 'summary' => '']);
+    $b2 = Book::factory()->create(['title' => 'Zanzibar', 'author' => '', 'summary' => '']);
 
     $results = Book::search('zanzibar')->get();
 
@@ -59,5 +61,5 @@ test('engine throws on non-pgsql connection', function (): void {
         'driver' => 'sqlite', 'database' => ':memory:', 'prefix' => '',
     ]);
 
-    app(PostgresEngine::class)->search(new Builder(new Book(), 'any'));
+    resolve(PostgresEngine::class)->search(new Builder(new Book(), 'any'));
 })->throws(UnsupportedDriverException::class);
