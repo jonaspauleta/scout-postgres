@@ -8,42 +8,68 @@ use ApexScout\ScoutPostgres\Exceptions\ModelNotSearchableException;
 use ApexScout\ScoutPostgres\Exceptions\UnsupportedDriverException;
 use ApexScout\ScoutPostgres\Query\SearchQueryBuilder;
 use Illuminate\Database\ConnectionInterface;
+use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Support\LazyCollection;
 use Laravel\Scout\Builder;
 use Laravel\Scout\Engines\Engine;
+use Laravel\Scout\Searchable;
+use stdClass;
 
+/**
+ * @phpstan-type ScoutHit array{id: int|string, _score: float}
+ * @phpstan-type ScoutResults array{hits: list<ScoutHit>, total: int}
+ */
 final class PostgresEngine extends Engine
 {
     /** @var array<string, bool> */
     private array $verifiedTables = [];
 
+    /**
+     * @param  EloquentCollection<int, Model>  $models
+     */
     public function update($models): void {}
 
+    /**
+     * @param  EloquentCollection<int, Model>  $models
+     */
     public function delete($models): void {}
 
+    /**
+     * @param  Builder<Model>  $builder
+     * @return ScoutResults
+     */
     public function search(Builder $builder): array
     {
         return $this->performSearch($builder, null, null);
     }
 
+    /**
+     * @param  Builder<Model>  $builder
+     * @param  int|numeric-string  $perPage
+     * @param  int|numeric-string  $page
+     * @return ScoutResults
+     */
     public function paginate(Builder $builder, $perPage, $page): array
     {
         return $this->performSearch($builder, (int) $perPage, (int) $page);
     }
 
     /**
-     * @param  array{hits: list<array{id: int|string, _score: float}>, total: int}  $results
+     * @param  ScoutResults  $results
+     * @return Collection<int, int|string>
      */
     public function mapIds($results): Collection
     {
-        return collect($results['hits'])->pluck('id');
+        return collect($this->extractIds($results));
     }
 
     /**
-     * @param  array{hits: list<array{id: int|string, _score: float}>, total: int}  $results
+     * @param  Builder<Model>  $builder
+     * @param  ScoutResults  $results
+     * @return EloquentCollection<int, Model>
      */
     public function map(Builder $builder, $results, $model): EloquentCollection
     {
@@ -51,17 +77,21 @@ final class PostgresEngine extends Engine
             return $model->newCollection();
         }
 
-        $ids = collect($results['hits'])->pluck('id')->all();
-        $position = array_flip($ids);
+        $ids = $this->extractIds($results);
+        $position = $this->buildPositionMap($ids);
 
-        return $model->queryScoutModelsByIds($builder, $ids)->get()
-            ->filter(fn (Model $m): bool => array_key_exists((string) $m->getKey(), $position))
-            ->sortBy(fn (Model $m) => $position[$m->getKey()])
+        $fetched = $this->queryModelsByIds($model, $builder, $ids)->get();
+
+        return $fetched
+            ->filter(fn (Model $m): bool => array_key_exists($this->modelKey($m), $position))
+            ->sortBy(fn (Model $m): int => $position[$this->modelKey($m)])
             ->values();
     }
 
     /**
-     * @param  array{hits: list<array{id: int|string, _score: float}>, total: int}  $results
+     * @param  Builder<Model>  $builder
+     * @param  ScoutResults  $results
+     * @return LazyCollection<int, Model>
      */
     public function lazyMap(Builder $builder, $results, $model): LazyCollection
     {
@@ -69,17 +99,54 @@ final class PostgresEngine extends Engine
             return LazyCollection::make();
         }
 
-        $ids = collect($results['hits'])->pluck('id')->all();
-        $position = array_flip($ids);
+        $ids = $this->extractIds($results);
+        $position = $this->buildPositionMap($ids);
 
-        return $model->queryScoutModelsByIds($builder, $ids)->cursor()
-            ->filter(fn (Model $m): bool => array_key_exists((string) $m->getKey(), $position))
-            ->sortBy(fn (Model $m) => $position[$m->getKey()])
+        $cursor = $this->queryModelsByIds($model, $builder, $ids)->cursor();
+
+        return $cursor
+            ->filter(fn (Model $m): bool => array_key_exists($this->modelKey($m), $position))
+            ->sortBy(fn (Model $m): int => $position[$this->modelKey($m)])
             ->values();
     }
 
     /**
-     * @param  array{hits: list<array{id: int|string, _score: float}>, total: int}  $results
+     * @param  ScoutResults  $results
+     * @return list<int|string>
+     */
+    private function extractIds(array $results): array
+    {
+        $ids = [];
+        foreach ($results['hits'] as $hit) {
+            $ids[] = $hit['id'];
+        }
+
+        return $ids;
+    }
+
+    /**
+     * @param  list<int|string>  $ids
+     * @return array<string, int>
+     */
+    private function buildPositionMap(array $ids): array
+    {
+        $map = [];
+        foreach ($ids as $index => $id) {
+            $map[(string) $id] = $index;
+        }
+
+        return $map;
+    }
+
+    private function modelKey(Model $model): string
+    {
+        $key = $model->getKey();
+
+        return is_int($key) || is_string($key) ? (string) $key : '';
+    }
+
+    /**
+     * @param  ScoutResults  $results
      */
     public function getTotalCount($results): int
     {
@@ -88,16 +155,19 @@ final class PostgresEngine extends Engine
 
     public function flush($model): void {}
 
+    /**
+     * @param  array<string, mixed>  $options
+     */
     public function createIndex($name, array $options = []): void {}
 
     public function deleteIndex($name): void {}
 
     /**
-     * @return array{hits: list<array{id: int|string, _score: float}>, total: int}
+     * @param  Builder<Model>  $builder
+     * @return ScoutResults
      */
     private function performSearch(Builder $builder, ?int $perPage, ?int $page): array
     {
-        /** @var Model $model */
         $model = $builder->model;
         $connection = $this->resolveConnection($model);
 
@@ -112,8 +182,10 @@ final class PostgresEngine extends Engine
         }
 
         $config = SearchQueryBuilder::resolveConfig($model);
+        $engine = $this;
 
-        return $connection->transaction(function () use ($connection, $compiled, $config): array {
+        /** @var ScoutResults $results */
+        $results = $connection->transaction(static function () use ($engine, $connection, $compiled, $config): array {
             $connection->statement(sprintf(
                 'SET LOCAL pg_trgm.similarity_threshold = %F',
                 $config['trigram_threshold'],
@@ -121,17 +193,98 @@ final class PostgresEngine extends Engine
 
             $rows = $connection->select($compiled->sql, $compiled->bindings);
 
-            return [
-                'hits' => array_map(
-                    fn (object $row): array => [
-                        'id' => $row->id,
-                        '_score' => (float) $row->_score,
-                    ],
-                    $rows,
-                ),
-                'total' => $rows === [] ? 0 : (int) $rows[0]->_total,
-            ];
+            return $engine->formatRows($rows);
         });
+
+        return $results;
+    }
+
+    /**
+     * @param  array<int|string, mixed>  $rows
+     * @return ScoutResults
+     */
+    private function formatRows(array $rows): array
+    {
+        $hits = [];
+        $total = 0;
+        $first = true;
+
+        foreach ($rows as $row) {
+            if (! $row instanceof stdClass) {
+                continue;
+            }
+
+            $hits[] = [
+                'id' => $this->normaliseId($row->id ?? null),
+                '_score' => $this->normaliseScore($row->_score ?? null),
+            ];
+
+            if ($first) {
+                $rawTotal = $row->_total ?? null;
+                if (is_int($rawTotal) || (is_string($rawTotal) && is_numeric($rawTotal))) {
+                    $total = (int) $rawTotal;
+                }
+                $first = false;
+            }
+        }
+
+        return [
+            'hits' => $hits,
+            'total' => $total,
+        ];
+    }
+
+    private function normaliseId(mixed $id): int|string
+    {
+        if (is_int($id) || is_string($id)) {
+            return $id;
+        }
+
+        if ($id === null) {
+            return '';
+        }
+
+        return (string) (is_scalar($id) ? $id : '');
+    }
+
+    private function normaliseScore(mixed $score): float
+    {
+        if (is_int($score) || is_float($score)) {
+            return (float) $score;
+        }
+
+        if (is_string($score) && is_numeric($score)) {
+            return (float) $score;
+        }
+
+        return 0.0;
+    }
+
+    /**
+     * Narrow a Searchable model to a typed Eloquent query for key-based lookup.
+     *
+     * @param  Builder<Model>  $builder
+     * @param  list<int|string>  $ids
+     * @return EloquentBuilder<Model>
+     */
+    private function queryModelsByIds(Model $model, Builder $builder, array $ids): EloquentBuilder
+    {
+        if (! in_array(Searchable::class, class_uses_recursive($model), true)) {
+            throw ModelNotSearchableException::for($model->getTable());
+        }
+
+        if (! method_exists($model, 'queryScoutModelsByIds')) {
+            throw ModelNotSearchableException::for($model->getTable());
+        }
+
+        $query = call_user_func([$model, 'queryScoutModelsByIds'], $builder, $ids);
+
+        if (! $query instanceof EloquentBuilder) {
+            throw ModelNotSearchableException::for($model->getTable());
+        }
+
+        /** @var EloquentBuilder<Model> $query */
+        return $query;
     }
 
     private function resolveConnection(Model $model): ConnectionInterface

@@ -4,9 +4,21 @@ declare(strict_types=1);
 
 namespace ApexScout\ScoutPostgres\Query;
 
+use ApexScout\ScoutPostgres\Contracts\PostgresSearchable;
 use Illuminate\Database\Eloquent\Model;
 use Laravel\Scout\Builder;
 
+/**
+ * @phpstan-type ScoutPostgresConfig array{
+ *   text_search_config: string,
+ *   fts_weight: float,
+ *   trigram_weight: float,
+ *   trigram_threshold: float,
+ *   rank_function: string,
+ *   rank_weights: array<int, float>,
+ *   rank_normalization: int,
+ * }
+ */
 final readonly class SearchQueryBuilder
 {
     /**
@@ -17,11 +29,17 @@ final readonly class SearchQueryBuilder
         public array $bindings,
     ) {}
 
+    /**
+     * @param  Builder<Model>  $builder
+     */
     public static function forSearch(Builder $builder): ?self
     {
         return self::build($builder, limit: null, offset: null);
     }
 
+    /**
+     * @param  Builder<Model>  $builder
+     */
     public static function forPaginate(Builder $builder, int $perPage, int $page): ?self
     {
         $offset = max(0, ($page - 1) * $perPage);
@@ -30,38 +48,28 @@ final readonly class SearchQueryBuilder
     }
 
     /**
-     * @return array{
-     *   text_search_config: string,
-     *   fts_weight: float,
-     *   trigram_weight: float,
-     *   trigram_threshold: float,
-     *   rank_function: string,
-     *   rank_weights: array<int, float>,
-     *   rank_normalization: int,
-     * }
+     * @return ScoutPostgresConfig
      */
     public static function resolveConfig(Model $model): array
     {
-        /** @var array<string, mixed> $defaults */
-        $defaults = config('scout-postgres', []);
-
-        $override = method_exists($model, 'scoutPostgresConfig')
+        $override = $model instanceof PostgresSearchable
             ? $model->scoutPostgresConfig()
             : [];
 
-        $merged = array_replace($defaults, $override);
-
         return [
-            'text_search_config' => $merged['text_search_config'] ?? 'simple_unaccent',
-            'fts_weight' => (float) ($merged['fts_weight'] ?? 2.0),
-            'trigram_weight' => (float) ($merged['trigram_weight'] ?? 1.0),
-            'trigram_threshold' => (float) ($merged['trigram_threshold'] ?? 0.15),
-            'rank_function' => (string) ($merged['rank_function'] ?? 'ts_rank'),
-            'rank_weights' => $merged['rank_weights'] ?? [0.1, 0.2, 0.4, 1.0],
-            'rank_normalization' => (int) ($merged['rank_normalization'] ?? 32),
+            'text_search_config' => self::resolveString($override, 'text_search_config', 'simple_unaccent'),
+            'fts_weight' => self::resolveFloat($override, 'fts_weight', 2.0),
+            'trigram_weight' => self::resolveFloat($override, 'trigram_weight', 1.0),
+            'trigram_threshold' => self::resolveFloat($override, 'trigram_threshold', 0.15),
+            'rank_function' => self::resolveString($override, 'rank_function', 'ts_rank'),
+            'rank_weights' => self::resolveWeights($override),
+            'rank_normalization' => self::resolveInt($override, 'rank_normalization', 32),
         ];
     }
 
+    /**
+     * @param  Builder<Model>  $builder
+     */
     private static function build(Builder $builder, ?int $limit, ?int $offset): ?self
     {
         $query = mb_trim($builder->query);
@@ -69,7 +77,6 @@ final readonly class SearchQueryBuilder
             return null;
         }
 
-        /** @var Model $model */
         $model = $builder->model;
         $table = $builder->index ?? $model->getTable();
 
@@ -91,14 +98,15 @@ final readonly class SearchQueryBuilder
         $config = self::resolveConfig($model);
 
         $wheresSql = self::compileWheres($builder->wheres, $bindings);
-        $whereInsSql = self::compileWhereIns($builder->whereIns ?? [], $bindings, negated: false);
-        $whereNotInsSql = self::compileWhereIns($builder->whereNotIns ?? [], $bindings, negated: true);
+        $whereInsSql = self::compileWhereIns($builder->whereIns, $bindings, negated: false);
+        $whereNotInsSql = self::compileWhereIns($builder->whereNotIns, $bindings, negated: true);
 
         $orderSql = self::compileOrders($builder->orders, $model);
 
+        $builderLimit = $builder->limit;
         $limitSql = $limit === null
-            ? (is_int($builder->limit) ? ' LIMIT '.$builder->limit : '')
-            : sprintf(' LIMIT %d OFFSET %s', $limit, $offset);
+            ? (is_int($builderLimit) ? ' LIMIT '.$builderLimit : '')
+            : sprintf(' LIMIT %d OFFSET %d', $limit, (int) $offset);
 
         $rankFn = $config['rank_function'];
         $rankNorm = $config['rank_normalization'];
@@ -151,7 +159,7 @@ SQL;
      * actually appends `['field', 'operator', 'value']` tuples to a list.
      * The `normaliseWhere` helper is therefore unnecessary.
      *
-     * @param  list<array{field: string, operator: string, value: mixed}>  $wheres
+     * @param  array<int|string, mixed>  $wheres
      * @param  array<string, mixed>  $bindings
      */
     private static function compileWheres(array $wheres, array &$bindings): string
@@ -160,12 +168,21 @@ SQL;
         $i = 0;
 
         foreach ($wheres as $where) {
-            $column = $where['field'];
-            $operator = $where['operator'];
-            $value = $where['value'];
+            if (! is_array($where)) {
+                continue;
+            }
+
+            $column = self::scalarString($where['field'] ?? null);
+            $operator = self::scalarString($where['operator'] ?? null, '=');
+            $value = $where['value'] ?? null;
+
+            if ($column === '') {
+                continue;
+            }
 
             if ($column === '__soft_deleted') {
-                $sql .= (int) $value === 0
+                $flag = is_int($value) || is_string($value) ? (int) $value : 0;
+                $sql .= $flag === 0
                     ? ' AND "deleted_at" IS NULL'
                     : ' AND "deleted_at" IS NOT NULL';
 
@@ -181,7 +198,7 @@ SQL;
     }
 
     /**
-     * @param  array<string, array<int, mixed>>  $whereIns
+     * @param  array<int|string, mixed>  $whereIns
      * @param  array<string, mixed>  $bindings
      */
     private static function compileWhereIns(array $whereIns, array &$bindings, bool $negated): string
@@ -192,6 +209,12 @@ SQL;
         $prefix = $negated ? 'notin' : 'in';
 
         foreach ($whereIns as $column => $values) {
+            if (! is_string($column)) {
+                continue;
+            }
+            if (! is_array($values)) {
+                continue;
+            }
             if ($values === []) {
                 $sql .= $negated ? '' : ' AND 1=0'; // empty IN ⇒ impossible match; empty NOT IN ⇒ tautology
 
@@ -212,7 +235,7 @@ SQL;
     }
 
     /**
-     * @param  array<int, array{column: string, direction: string}>  $orders
+     * @param  array<int|string, mixed>  $orders
      */
     private static function compileOrders(array $orders, Model $model): string
     {
@@ -220,11 +243,109 @@ SQL;
             return 'ORDER BY _score DESC, "'.$model->getKeyName().'" ASC';
         }
 
-        $parts = array_map(
-            fn (array $o): string => '"'.$o['column'].'" '.$o['direction'],
-            $orders,
-        );
+        $parts = [];
+        foreach ($orders as $o) {
+            if (! is_array($o)) {
+                continue;
+            }
+            $column = self::scalarString($o['column'] ?? null);
+            $direction = self::scalarString($o['direction'] ?? null, 'asc');
+            if ($column === '') {
+                continue;
+            }
+            $parts[] = '"'.$column.'" '.$direction;
+        }
 
         return 'ORDER BY '.implode(', ', $parts);
+    }
+
+    private static function scalarString(mixed $value, string $default = ''): string
+    {
+        if (is_string($value)) {
+            return $value;
+        }
+
+        if (is_int($value) || is_float($value) || is_bool($value)) {
+            return (string) $value;
+        }
+
+        return $default;
+    }
+
+    /**
+     * @param  array<string, mixed>  $override
+     */
+    private static function resolveString(array $override, string $key, string $default): string
+    {
+        if (array_key_exists($key, $override)) {
+            $value = $override[$key];
+            if (is_string($value) && $value !== '') {
+                return $value;
+            }
+        }
+
+        $value = config('scout-postgres.'.$key, $default);
+
+        return is_string($value) ? $value : $default;
+    }
+
+    /**
+     * @param  array<string, mixed>  $override
+     */
+    private static function resolveFloat(array $override, string $key, float $default): float
+    {
+        if (array_key_exists($key, $override)) {
+            $value = $override[$key];
+            if (is_int($value) || is_float($value)) {
+                return (float) $value;
+            }
+        }
+
+        $value = config('scout-postgres.'.$key, $default);
+
+        return is_int($value) || is_float($value) ? (float) $value : $default;
+    }
+
+    /**
+     * @param  array<string, mixed>  $override
+     */
+    private static function resolveInt(array $override, string $key, int $default): int
+    {
+        if (array_key_exists($key, $override)) {
+            $value = $override[$key];
+            if (is_int($value)) {
+                return $value;
+            }
+        }
+
+        $value = config('scout-postgres.'.$key, $default);
+
+        return is_int($value) ? $value : $default;
+    }
+
+    /**
+     * @param  array<string, mixed>  $override
+     * @return array<int, float>
+     */
+    private static function resolveWeights(array $override): array
+    {
+        $default = [0.1, 0.2, 0.4, 1.0];
+
+        $raw = array_key_exists('rank_weights', $override)
+            ? $override['rank_weights']
+            : config('scout-postgres.rank_weights', $default);
+
+        if (! is_array($raw)) {
+            return $default;
+        }
+
+        $result = [];
+        foreach (array_values($raw) as $v) {
+            if (is_int($v) || is_float($v)) {
+                $result[] = (float) $v;
+            }
+        }
+
+        return $result === [] ? $default : $result;
     }
 }

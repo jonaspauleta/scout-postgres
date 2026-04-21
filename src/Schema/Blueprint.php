@@ -24,16 +24,20 @@ final class Blueprint
     }
 
     /**
-     * @param  array<string, string>  $weights
+     * @param  array<int|string, mixed>  $weights
      */
     public static function apply(LaravelBlueprint $blueprint, array $weights, ?string $config): void
     {
-        self::validateWeights($weights);
+        $normalised = self::validateWeights($weights);
 
-        $config ??= config('scout-postgres.text_search_config', 'simple_unaccent');
+        if ($config === null) {
+            $configured = config('scout-postgres.text_search_config', 'simple_unaccent');
+            $config = is_string($configured) ? $configured : 'simple_unaccent';
+        }
+
         $table = $blueprint->getTable();
-        $vectorExpr = self::buildVectorExpression($weights, $config);
-        $textExpr = self::buildTextExpression(array_keys($weights));
+        $vectorExpr = self::buildVectorExpression($normalised, $config);
+        $textExpr = self::buildTextExpression(array_keys($normalised));
 
         DB::statement(sprintf(
             'ALTER TABLE %s ADD COLUMN search_vector tsvector GENERATED ALWAYS AS (%s) STORED',
@@ -71,14 +75,22 @@ final class Blueprint
     }
 
     /**
-     * @param  array<string, string>  $weights
+     * @param  array<int|string, mixed>  $weights
+     * @return array<string, string>
      */
-    private static function validateWeights(array $weights): void
+    private static function validateWeights(array $weights): array
     {
         throw_if($weights === [], InvalidArgumentException::class, 'postgresSearchable() requires at least one column => weight entry.');
 
         $valid = ['A', 'B', 'C', 'D'];
+        $normalised = [];
         foreach ($weights as $column => $weight) {
+            if (! is_string($column) || ! is_string($weight)) {
+                throw new InvalidArgumentException(
+                    'postgresSearchable() requires string column => string weight entries.',
+                );
+            }
+
             if (! in_array($weight, $valid, true)) {
                 throw new InvalidArgumentException(sprintf(
                     'Weight for column "%s" must be one of A, B, C, D (got "%s").',
@@ -86,7 +98,11 @@ final class Blueprint
                     $weight,
                 ));
             }
+
+            $normalised[$column] = $weight;
         }
+
+        return $normalised;
     }
 
     /**
