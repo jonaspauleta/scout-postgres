@@ -49,13 +49,13 @@ final class Blueprint
 
         DB::statement(sprintf(
             'CREATE INDEX IF NOT EXISTS %s ON %s USING gin(search_vector)',
-            self::quote("{$table}_search_vector_gin"),
+            self::quote($table.'_search_vector_gin'),
             self::quote($table),
         ));
 
         DB::statement(sprintf(
             'CREATE INDEX IF NOT EXISTS %s ON %s USING gin(search_text gin_trgm_ops)',
-            self::quote("{$table}_search_text_trgm"),
+            self::quote($table.'_search_text_trgm'),
             self::quote($table),
         ));
     }
@@ -64,8 +64,8 @@ final class Blueprint
     {
         $table = $blueprint->getTable();
 
-        DB::statement(sprintf('DROP INDEX IF EXISTS %s', self::quote("{$table}_search_vector_gin")));
-        DB::statement(sprintf('DROP INDEX IF EXISTS %s', self::quote("{$table}_search_text_trgm")));
+        DB::statement(sprintf('DROP INDEX IF EXISTS %s', self::quote($table.'_search_vector_gin')));
+        DB::statement(sprintf('DROP INDEX IF EXISTS %s', self::quote($table.'_search_text_trgm')));
         DB::statement(sprintf('ALTER TABLE %s DROP COLUMN IF EXISTS search_vector', self::quote($table)));
         DB::statement(sprintf('ALTER TABLE %s DROP COLUMN IF EXISTS search_text', self::quote($table)));
     }
@@ -75,9 +75,7 @@ final class Blueprint
      */
     private static function validateWeights(array $weights): void
     {
-        if ($weights === []) {
-            throw new InvalidArgumentException('postgresSearchable() requires at least one column => weight entry.');
-        }
+        throw_if($weights === [], InvalidArgumentException::class, 'postgresSearchable() requires at least one column => weight entry.');
 
         $valid = ['A', 'B', 'C', 'D'];
         foreach ($weights as $column => $weight) {
