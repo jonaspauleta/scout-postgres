@@ -7,7 +7,7 @@ Native Postgres 18 FTS + pg_trgm engine for Laravel Scout. Lives under
 
 - `CREATE EXTENSION pg_trgm` and `CREATE EXTENSION unaccent` must succeed.
   On Neon/Laravel Cloud the default DB role has permission.
-- Run the package migration: `php artisan migrate --path=packages/apex-scout/scout-postgres/database/migrations`.
+- Run the package migration: `php artisan migrate` — picked up automatically via `runsMigrations()`. No `--path=` flag required.
 - Add per-table generated columns via `$table->postgresSearchable([...])` in an
   app migration.
 - Set `SCOUT_DRIVER=pgsql`, `SCOUT_QUEUE=false`.
