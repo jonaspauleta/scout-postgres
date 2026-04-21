@@ -2,4 +2,70 @@
 
 declare(strict_types=1);
 
-return [];
+return [
+    /*
+    |--------------------------------------------------------------------------
+    | Text Search Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Postgres regconfig used for both indexing (generated column) and querying
+    | (websearch_to_tsquery). The package migration creates "simple_unaccent"
+    | by default — a copy of "simple" mapped through the unaccent dictionary.
+    */
+    'text_search_config' => env('SCOUT_POSTGRES_CONFIG', 'simple_unaccent'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Score Weights
+    |--------------------------------------------------------------------------
+    |
+    | Final score = ts_rank * fts_weight + similarity * trigram_weight.
+    */
+    'fts_weight' => (float) env('SCOUT_POSTGRES_FTS_WEIGHT', 2.0),
+    'trigram_weight' => (float) env('SCOUT_POSTGRES_TRIGRAM_WEIGHT', 1.0),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Trigram Similarity Threshold
+    |--------------------------------------------------------------------------
+    |
+    | Applied per-transaction via SET LOCAL pg_trgm.similarity_threshold.
+    | Lower = more recall, more noise. Higher = stricter fuzzy matching.
+    */
+    'trigram_threshold' => (float) env('SCOUT_POSTGRES_TRIGRAM_THRESHOLD', 0.15),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Ranking Function
+    |--------------------------------------------------------------------------
+    |
+    | "ts_rank" — frequency-based. "ts_rank_cd" — cover density.
+    */
+    'rank_function' => env('SCOUT_POSTGRES_RANK_FUNCTION', 'ts_rank'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Weight Multipliers (D, C, B, A)
+    |--------------------------------------------------------------------------
+    */
+    'rank_weights' => [0.1, 0.2, 0.4, 1.0],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Normalization Bitmask
+    |--------------------------------------------------------------------------
+    |
+    | See Postgres docs: https://www.postgresql.org/docs/current/textsearch-controls.html
+    */
+    'rank_normalization' => (int) env('SCOUT_POSTGRES_RANK_NORMALIZATION', 32),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Sync
+    |--------------------------------------------------------------------------
+    |
+    | Whether Scout's model observer should dispatch index jobs. Default false
+    | because the generated columns compute on write — no sync is required.
+    */
+    'sync' => (bool) env('SCOUT_POSTGRES_SYNC', false),
+];
