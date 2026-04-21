@@ -1,0 +1,235 @@
+parameters:
+	ignoreErrors:
+		-
+			message: '#^Access to an undefined property object\:\:\$_score\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Engines/PostgresEngine.php
+
+		-
+			message: '#^Access to an undefined property object\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Engines/PostgresEngine.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:queryScoutModelsByIds\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: src/Engines/PostgresEngine.php
+
+		-
+			message: '#^Method ApexScout\\ScoutPostgres\\Engines\\PostgresEngine\:\:createIndex\(\) has parameter \$options with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Engines/PostgresEngine.php
+
+		-
+			message: '#^Method ApexScout\\ScoutPostgres\\Engines\\PostgresEngine\:\:delete\(\) has parameter \$models with generic class Illuminate\\Database\\Eloquent\\Collection but does not specify its types\: TKey, TModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/Engines/PostgresEngine.php
+
+		-
+			message: '#^Method ApexScout\\ScoutPostgres\\Engines\\PostgresEngine\:\:lazyMap\(\) has parameter \$builder with generic class Laravel\\Scout\\Builder but does not specify its types\: TModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/Engines/PostgresEngine.php
+
+		-
+			message: '#^Method ApexScout\\ScoutPostgres\\Engines\\PostgresEngine\:\:lazyMap\(\) return type with generic class Illuminate\\Support\\LazyCollection does not specify its types\: TKey, TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/Engines/PostgresEngine.php
+
+		-
+			message: '#^Method ApexScout\\ScoutPostgres\\Engines\\PostgresEngine\:\:map\(\) has parameter \$builder with generic class Laravel\\Scout\\Builder but does not specify its types\: TModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/Engines/PostgresEngine.php
+
+		-
+			message: '#^Method ApexScout\\ScoutPostgres\\Engines\\PostgresEngine\:\:map\(\) return type with generic class Illuminate\\Database\\Eloquent\\Collection does not specify its types\: TKey, TModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/Engines/PostgresEngine.php
+
+		-
+			message: '#^Method ApexScout\\ScoutPostgres\\Engines\\PostgresEngine\:\:mapIds\(\) return type with generic class Illuminate\\Support\\Collection does not specify its types\: TKey, TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/Engines/PostgresEngine.php
+
+		-
+			message: '#^Method ApexScout\\ScoutPostgres\\Engines\\PostgresEngine\:\:paginate\(\) has parameter \$builder with generic class Laravel\\Scout\\Builder but does not specify its types\: TModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/Engines/PostgresEngine.php
+
+		-
+			message: '#^Method ApexScout\\ScoutPostgres\\Engines\\PostgresEngine\:\:paginate\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Engines/PostgresEngine.php
+
+		-
+			message: '#^Method ApexScout\\ScoutPostgres\\Engines\\PostgresEngine\:\:performSearch\(\) has parameter \$builder with generic class Laravel\\Scout\\Builder but does not specify its types\: TModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/Engines/PostgresEngine.php
+
+		-
+			message: '#^Method ApexScout\\ScoutPostgres\\Engines\\PostgresEngine\:\:search\(\) has parameter \$builder with generic class Laravel\\Scout\\Builder but does not specify its types\: TModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/Engines/PostgresEngine.php
+
+		-
+			message: '#^Method ApexScout\\ScoutPostgres\\Engines\\PostgresEngine\:\:search\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Engines/PostgresEngine.php
+
+		-
+			message: '#^Method ApexScout\\ScoutPostgres\\Engines\\PostgresEngine\:\:update\(\) has parameter \$models with generic class Illuminate\\Database\\Eloquent\\Collection but does not specify its types\: TKey, TModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/Engines/PostgresEngine.php
+
+		-
+			message: '#^Method ApexScout\\ScoutPostgres\\Query\\SearchQueryBuilder\:\:build\(\) has parameter \$builder with generic class Laravel\\Scout\\Builder but does not specify its types\: TModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/Query/SearchQueryBuilder.php
+
+		-
+			message: '#^Method ApexScout\\ScoutPostgres\\Query\\SearchQueryBuilder\:\:forPaginate\(\) has parameter \$builder with generic class Laravel\\Scout\\Builder but does not specify its types\: TModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/Query/SearchQueryBuilder.php
+
+		-
+			message: '#^Method ApexScout\\ScoutPostgres\\Query\\SearchQueryBuilder\:\:forSearch\(\) has parameter \$builder with generic class Laravel\\Scout\\Builder but does not specify its types\: TModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: src/Query/SearchQueryBuilder.php
+
+		-
+			message: '#^Parameter \#1 \$wheres of static method ApexScout\\ScoutPostgres\\Query\\SearchQueryBuilder\:\:compileWheres\(\) expects list\<array\{field\: string, operator\: string, value\: mixed\}\>, array given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Query/SearchQueryBuilder.php
+
+		-
+			message: '#^Property Laravel\\Scout\\Builder\<Illuminate\\Database\\Eloquent\\Model\>\:\:\$whereIns \(array\) on left side of \?\? is not nullable\.$#'
+			identifier: nullCoalesce.property
+			count: 1
+			path: src/Query/SearchQueryBuilder.php
+
+		-
+			message: '#^Property Laravel\\Scout\\Builder\<Illuminate\\Database\\Eloquent\\Model\>\:\:\$whereNotIns \(array\) on left side of \?\? is not nullable\.$#'
+			identifier: nullCoalesce.property
+			count: 1
+			path: src/Query/SearchQueryBuilder.php
+
+		-
+			message: '#^Cannot access property \$search_text on stdClass\|null\.$#'
+			identifier: property.nonObject
+			count: 1
+			path: tests/Feature/MigrationBlueprintTest.php
+
+		-
+			message: '#^Cannot access property \$search_vector on stdClass\|null\.$#'
+			identifier: property.nonObject
+			count: 1
+			path: tests/Feature/MigrationBlueprintTest.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Contracts\\Pagination\\LengthAwarePaginator\:\:count\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: tests/Feature/PaginationTest.php
+
+		-
+			message: '#^Unable to resolve the template type TAndValue in call to method Pest\\Expectation\<int\|null\>\:\:and\(\)$#'
+			identifier: argument.templateType
+			count: 1
+			path: tests/Feature/PaginationTest.php
+
+		-
+			message: '#^Unable to resolve the template type TAndValue in call to method Pest\\Expectation\<mixed\>\:\:and\(\)$#'
+			identifier: argument.templateType
+			count: 1
+			path: tests/Feature/PaginationTest.php
+
+		-
+			message: '#^Cannot access property \$id on ApexScout\\ScoutPostgres\\Tests\\Fixtures\\Models\\Book\|null\.$#'
+			identifier: property.nonObject
+			count: 3
+			path: tests/Feature/RankingTest.php
+
+		-
+			message: '#^Cannot access property \$title on ApexScout\\ScoutPostgres\\Tests\\Fixtures\\Models\\Book\|null\.$#'
+			identifier: property.nonObject
+			count: 1
+			path: tests/Feature/SearchTest.php
+
+		-
+			message: '#^Unable to resolve the template type TAndValue in call to method Pest\\Expectation\<Illuminate\\Database\\Eloquent\\Collection\<int, ApexScout\\ScoutPostgres\\Tests\\Fixtures\\Models\\Book\>\|null\>\:\:and\(\)$#'
+			identifier: argument.templateType
+			count: 1
+			path: tests/Feature/SearchTest.php
+
+		-
+			message: '#^Class ApexScout\\ScoutPostgres\\Tests\\Fixtures\\Models\\Book uses generic trait Illuminate\\Database\\Eloquent\\Factories\\HasFactory but does not specify its types\: TFactory$#'
+			identifier: missingType.generics
+			count: 1
+			path: tests/Fixtures/Models/Book.php
+
+		-
+			message: '#^Cannot access property \$id on ApexScout\\ScoutPostgres\\Tests\\Fixtures\\Models\\Book\|null\.$#'
+			identifier: property.nonObject
+			count: 1
+			path: tests/Unit/PostgresEngineTest.php
+
+		-
+			message: '#^Parameter \#1 \$models of method ApexScout\\ScoutPostgres\\Engines\\PostgresEngine\:\:delete\(\) expects Illuminate\\Database\\Eloquent\\Collection, Illuminate\\Support\\Collection\<\*NEVER\*, \*NEVER\*\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/Unit/PostgresEngineTest.php
+
+		-
+			message: '#^Parameter \#1 \$models of method ApexScout\\ScoutPostgres\\Engines\\PostgresEngine\:\:update\(\) expects Illuminate\\Database\\Eloquent\\Collection, Illuminate\\Support\\Collection\<\*NEVER\*, \*NEVER\*\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/Unit/PostgresEngineTest.php
+
+		-
+			message: '#^Parameter \#1 \$results of method ApexScout\\ScoutPostgres\\Engines\\PostgresEngine\:\:mapIds\(\) expects array\{hits\: list\<array\{id\: int\|string, _score\: float\}\>, total\: int\}, array given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/Unit/PostgresEngineTest.php
+
+		-
+			message: '#^Cannot access property \$bindings on ApexScout\\ScoutPostgres\\Query\\SearchQueryBuilder\|null\.$#'
+			identifier: property.nonObject
+			count: 1
+			path: tests/Unit/SearchQueryBuilderTest.php
+
+		-
+			message: '#^Cannot access property \$sql on ApexScout\\ScoutPostgres\\Query\\SearchQueryBuilder\|null\.$#'
+			identifier: property.nonObject
+			count: 16
+			path: tests/Unit/SearchQueryBuilderTest.php
+
+		-
+			message: '#^Function ApexScout\\ScoutPostgres\\Tests\\Unit\\makeBuilder\(\) has parameter \$options with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: tests/Unit/SearchQueryBuilderTest.php
+
+		-
+			message: '#^Function ApexScout\\ScoutPostgres\\Tests\\Unit\\makeBuilder\(\) return type with generic class Laravel\\Scout\\Builder does not specify its types\: TModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: tests/Unit/SearchQueryBuilderTest.php

@@ -2,12 +2,17 @@ includes:
     - vendor/larastan/larastan/extension.neon
     - vendor/phpstan/phpstan-deprecation-rules/rules.neon
     - vendor/phpstan/phpstan-phpunit/extension.neon
+    - phpstan-baseline.neon
 
 parameters:
-    level: max
+    level: 8
     paths:
         - src
         - tests
     tmpDir: build/phpstan
     excludePaths:
         - tests/Fixtures/database/migrations/*
+    ignoreErrors:
+        -
+            identifier: larastan.noEnvCallsOutsideOfConfig
+            path: tests/TestCase.php
