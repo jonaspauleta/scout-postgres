@@ -2,7 +2,7 @@
     "name": "apex-scout/scout-postgres",
     "description": "Native Postgres full-text search + pg_trgm engine for Laravel Scout.",
     "keywords": ["laravel", "scout", "postgres", "full-text-search", "pg_trgm"],
-    "homepage": "https://github.com/apex-scout/scout-postgres",
+    "homepage": "https://github.com/jonaspauleta/scout-postgres",
     "license": "MIT",
     "authors": [
         { "name": "João Paulo Santos", "email": "jonaspauleta2@gmail.com", "role": "Developer" }
