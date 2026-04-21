@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Laravel\Scout\Searchable;
+use Override;
 
 #[Hidden(['search_vector', 'search_text'])]
 #[Table(name: 'books')]
@@ -20,6 +21,7 @@ final class Book extends Model
     use Searchable;
     use SoftDeletes;
 
+    #[Override]
     protected $guarded = [];
 
     protected static function newFactory(): BookFactory

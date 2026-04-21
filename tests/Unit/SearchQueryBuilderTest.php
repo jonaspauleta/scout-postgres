@@ -10,7 +10,7 @@ use Laravel\Scout\Builder;
 
 function makeBuilder(string $query, array $options = []): Builder
 {
-    $builder = new Builder(new Book(), $query);
+    $builder = new Builder(new Book, $query);
     foreach ($options as $method => $args) {
         $builder = $builder->{$method}(...$args);
     }

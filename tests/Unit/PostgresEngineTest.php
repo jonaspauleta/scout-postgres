@@ -15,7 +15,7 @@ test('write methods are no-ops', function (): void {
 
     $engine->update(Collection::make([]));
     $engine->delete(Collection::make([]));
-    $engine->flush(new Book());
+    $engine->flush(new Book);
     $engine->createIndex('books');
     $engine->deleteIndex('books');
 
@@ -37,7 +37,7 @@ test('mapIds returns primary keys', function (): void {
     $book = Book::factory()->create(['title' => 'Zanzibar']);
 
     $engine = resolve(PostgresEngine::class);
-    $builder = new Builder(new Book(), 'zanzibar');
+    $builder = new Builder(new Book, 'zanzibar');
     $results = $engine->search($builder);
 
     expect($engine->mapIds($results)->all())->toContain($book->id);
@@ -61,5 +61,5 @@ test('engine throws on non-pgsql connection', function (): void {
         'driver' => 'sqlite', 'database' => ':memory:', 'prefix' => '',
     ]);
 
-    resolve(PostgresEngine::class)->search(new Builder(new Book(), 'any'));
+    resolve(PostgresEngine::class)->search(new Builder(new Book, 'any'));
 })->throws(UnsupportedDriverException::class);
