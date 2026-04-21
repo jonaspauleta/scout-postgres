@@ -123,7 +123,7 @@ WITH q AS (
 )
 SELECT "{$model->getKeyName()}" AS id,
   (
-    CASE WHEN search_vector @@ COALESCE(q.ws && q.pfx, q.ws)
+    CASE WHEN search_vector @@ COALESCE(q.ws || q.pfx, q.ws)
          THEN {$rankFn}('{$weightsArray}'::real[], search_vector, q.ws, {$rankNorm})
          ELSE 0
     END
@@ -133,7 +133,7 @@ SELECT "{$model->getKeyName()}" AS id,
   COUNT(*) OVER() AS _total
 FROM "{$table}", q
 WHERE (
-    search_vector @@ COALESCE(q.ws && q.pfx, q.ws)
+    search_vector @@ COALESCE(q.ws || q.pfx, q.ws)
     OR search_text % :raw_trgm
 ){$wheresSql}{$whereInsSql}{$whereNotInsSql}
 {$orderSql}{$limitSql}
