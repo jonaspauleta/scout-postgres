@@ -1,5 +1,5 @@
 {
-    "name": "apex-scout/scout-postgres",
+    "name": "jonaspauleta/scout-postgres",
     "description": "Native Postgres full-text search + pg_trgm engine for Laravel Scout.",
     "keywords": ["laravel", "scout", "postgres", "full-text-search", "pg_trgm"],
     "homepage": "https://github.com/jonaspauleta/scout-postgres",

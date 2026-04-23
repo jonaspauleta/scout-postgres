@@ -1,7 +1,9 @@
 # scout-postgres — Agent Guide
 
-Native Postgres 18 FTS + pg_trgm engine for Laravel Scout. Lives under
-`packages/apex-scout/scout-postgres` in the ApexScout repo.
+Native Postgres 18 FTS + pg_trgm engine for Laravel Scout. Standalone
+package — published as `jonaspauleta/scout-postgres` on Packagist.
+Namespace stays `ApexScout\ScoutPostgres\` for brand continuity with the
+ApexScout SaaS.
 
 ## Installation
 

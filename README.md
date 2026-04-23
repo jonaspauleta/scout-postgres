@@ -13,7 +13,7 @@ Native Postgres 18 full-text search + `pg_trgm` trigram similarity engine for La
 ## Install
 
 ```bash
-composer require apex-scout/scout-postgres
+composer require jonaspauleta/scout-postgres
 php artisan vendor:publish --tag=scout-postgres-config
 php artisan migrate
 ```
