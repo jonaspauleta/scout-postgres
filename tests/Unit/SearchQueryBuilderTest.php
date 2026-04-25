@@ -134,3 +134,41 @@ test('unrecognised scout_postgres option keys leave totals enabled by default', 
 
     expect($result->sql)->toContain('COUNT(*) OVER()');
 });
+
+test('mode=hybrid (default) preserves trigram clause and bindings', function (): void {
+    $result = compile('jon');
+
+    expect($result->sql)->toContain('search_text % :raw_trgm')
+        ->and($result->sql)->toContain('similarity(search_text, :raw)')
+        ->and($result->bindings)->toHaveKey('raw')
+        ->and($result->bindings)->toHaveKey('raw_trgm');
+});
+
+test('mode=fts_only drops trigram clause from WHERE and score', function (): void {
+    $result = SearchQueryBuilder::forSearch(makeBuilder('jon'), mode: 'fts_only');
+    if (! $result instanceof SearchQueryBuilder) {
+        throw new RuntimeException('SearchQueryBuilder::forSearch returned null');
+    }
+
+    expect($result->sql)->not->toContain('search_text %')
+        ->and($result->sql)->not->toContain('similarity(search_text')
+        ->and($result->sql)->toContain('search_vector @@')
+        ->and($result->bindings)->not->toHaveKey('raw')
+        ->and($result->bindings)->not->toHaveKey('raw_trgm');
+});
+
+test('mode=fts_only preserves user wheres and pagination', function (): void {
+    $result = SearchQueryBuilder::forPaginate(
+        makeBuilder('jon', ['where' => ['status', 'active']]),
+        perPage: 20,
+        page: 2,
+        mode: 'fts_only',
+    );
+    if (! $result instanceof SearchQueryBuilder) {
+        throw new RuntimeException('SearchQueryBuilder::forPaginate returned null');
+    }
+
+    expect($result->sql)->toContain('AND "status" = ')
+        ->and($result->sql)->toContain('LIMIT 20')
+        ->and($result->sql)->toContain('OFFSET 20');
+});

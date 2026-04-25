@@ -64,4 +64,20 @@ return [
     | See Postgres docs: https://www.postgresql.org/docs/current/textsearch-controls.html
     */
     'rank_normalization' => (int) env('SCOUT_POSTGRES_RANK_NORMALIZATION', 32),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Query Strategy
+    |--------------------------------------------------------------------------
+    |
+    | "adaptive" — run an FTS-only query first, fall back to the hybrid
+    |              FTS+trigram query only when FTS recall is insufficient.
+    |              Cheapest on common queries; same recall as "hybrid" on
+    |              typo / fuzzy queries via fallback.
+    | "hybrid"   — always run the FTS+trigram query in a single pass. The
+    |              pre-1.0 behaviour. Use to reproduce historical timings.
+    | "fts_only" — never use trigram. Loses typo tolerance but cuts the
+    |              trigram-bitmap candidate-set cost on every query.
+    */
+    'query_strategy' => env('SCOUT_POSTGRES_QUERY_STRATEGY', 'adaptive'),
 ];

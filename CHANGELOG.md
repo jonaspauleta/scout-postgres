@@ -7,7 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`query_strategy` config (`adaptive` / `hybrid` / `fts_only`).** Default is
+  `adaptive`: the engine first runs an FTS-only query and only falls back to
+  the hybrid FTS + trigram query when FTS recall is insufficient. The fallback
+  preserves typo tolerance for queries that need it (single-character typos,
+  fuzzy phrasing) while skipping the expensive trigram bitmap on common
+  queries. Override per model via `scoutPostgresConfig()` or globally via the
+  `SCOUT_POSTGRES_QUERY_STRATEGY` env var. Set `hybrid` to reproduce the
+  pre-1.0 single-pass behaviour.
+
 ### Changed
+
+- **Default search behaviour now runs FTS first, trigram on fallback.** The
+  previous default (`hybrid`) ran both signals in a single pass on every
+  query, paying the trigram cost even when FTS already had enough recall.
+  Users who relied on the trigram tie-break in score ordering may see ranking
+  differences on queries where multiple rows have identical FTS rank — set
+  `SCOUT_POSTGRES_QUERY_STRATEGY=hybrid` to restore the old ordering.
 
 - **Root PHP namespace renamed: `ApexScout\ScoutPostgres\` → `ScoutPostgres\`.**
   The `ApexScout` prefix originated from a sister SaaS project and never

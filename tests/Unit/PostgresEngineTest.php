@@ -53,16 +53,16 @@ test('mapIds returns primary keys', function (): void {
 });
 
 test('map preserves score order', function (): void {
-    // Fix author/summary to empty so the trigram similarity signal is dominated
-    // by the title alone; otherwise random faker copy drowns the score delta.
-    Book::factory()->create(['title' => 'Zanzibar Zebra', 'author' => '', 'summary' => '']);
-    $b2 = Book::factory()->create(['title' => 'Zanzibar', 'author' => '', 'summary' => '']);
+    // Title-weighted (A) match must rank above summary-weighted (C) match
+    // under any query strategy — the title row is the FTS winner regardless
+    // of trigram contribution.
+    Book::factory()->create(['title' => 'Random', 'summary' => 'About zanzibar.', 'author' => '']);
+    $titleMatch = Book::factory()->create(['title' => 'Zanzibar', 'summary' => 'Random.', 'author' => '']);
 
     $results = Book::search('zanzibar')->get();
 
-    // Exact match should rank above prefix-only.
-    expect($results->modelKeys())->toContain($b2->id);
-    expect($results->first()?->getKey())->toBe($b2->id);
+    expect($results->modelKeys())->toContain($titleMatch->id);
+    expect($results->first()?->getKey())->toBe($titleMatch->id);
 });
 
 test('engine throws on non-pgsql connection', function (): void {

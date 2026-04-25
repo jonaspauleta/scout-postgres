@@ -17,6 +17,7 @@ use ScoutPostgres\Contracts\PostgresSearchable;
  *   rank_function: string,
  *   rank_weights: array<int, float>,
  *   rank_normalization: int,
+ *   query_strategy: string,
  * }
  */
 final readonly class SearchQueryBuilder
@@ -32,19 +33,19 @@ final readonly class SearchQueryBuilder
     /**
      * @param  Builder<Model>  $builder
      */
-    public static function forSearch(Builder $builder): ?self
+    public static function forSearch(Builder $builder, string $mode = 'hybrid'): ?self
     {
-        return self::build($builder, limit: null, offset: null);
+        return self::build($builder, limit: null, offset: null, mode: $mode);
     }
 
     /**
      * @param  Builder<Model>  $builder
      */
-    public static function forPaginate(Builder $builder, int $perPage, int $page): ?self
+    public static function forPaginate(Builder $builder, int $perPage, int $page, string $mode = 'hybrid'): ?self
     {
         $offset = max(0, ($page - 1) * $perPage);
 
-        return self::build($builder, limit: $perPage, offset: $offset);
+        return self::build($builder, limit: $perPage, offset: $offset, mode: $mode);
     }
 
     /**
@@ -64,24 +65,26 @@ final readonly class SearchQueryBuilder
             'rank_function' => self::resolveString($override, 'rank_function', 'ts_rank'),
             'rank_weights' => self::resolveWeights($override),
             'rank_normalization' => self::resolveInt($override, 'rank_normalization', 32),
+            'query_strategy' => self::resolveString($override, 'query_strategy', 'adaptive'),
         ];
     }
 
     /**
      * @param  Builder<Model>  $builder
      */
-    private static function build(Builder $builder, ?int $limit, ?int $offset): ?self
+    private static function build(Builder $builder, ?int $limit, ?int $offset, string $mode = 'hybrid'): ?self
     {
         $query = trim($builder->query);
         if ($query === '') {
             return null;
         }
 
+        $ftsOnly = $mode === 'fts_only';
+
         $model = $builder->model;
         $table = $builder->index ?? $model->getTable();
 
         $prefixQuery = QueryEscaper::buildPrefixQuery($query);
-        $rawTrigram = QueryEscaper::normaliseForTrigram($query);
 
         // PDO_PGSQL with native prepares (Laravel's default) rewrites each `:name`
         // occurrence into a separate $n placeholder. Any named placeholder that
@@ -91,9 +94,13 @@ final readonly class SearchQueryBuilder
         $bindings = [
             'query' => $query,
             'prefix_query' => $prefixQuery,
-            'raw' => $rawTrigram,
-            'raw_trgm' => $rawTrigram,
         ];
+
+        if (! $ftsOnly) {
+            $rawTrigram = QueryEscaper::normaliseForTrigram($query);
+            $bindings['raw'] = $rawTrigram;
+            $bindings['raw_trgm'] = $rawTrigram;
+        }
 
         $config = self::resolveConfig($model);
 
@@ -127,6 +134,34 @@ final readonly class SearchQueryBuilder
             ? ",\n  COUNT(*) OVER() AS _total"
             : '';
 
+        if ($ftsOnly) {
+            $scoreClause = <<<SQL
+(
+    CASE WHEN search_vector @@ COALESCE(q.ws || q.pfx, q.ws)
+         THEN {$rankFn}('{$weightsArray}'::real[], search_vector, q.ws, {$rankNorm})
+         ELSE 0
+    END
+  ) * {$ftsWeight}
+SQL;
+            $whereClause = 'search_vector @@ COALESCE(q.ws || q.pfx, q.ws)';
+        } else {
+            $scoreClause = <<<SQL
+(
+    CASE WHEN search_vector @@ COALESCE(q.ws || q.pfx, q.ws)
+         THEN {$rankFn}('{$weightsArray}'::real[], search_vector, q.ws, {$rankNorm})
+         ELSE 0
+    END
+  ) * {$ftsWeight}
+  + COALESCE(similarity(search_text, :raw), 0) * {$trgmWeight}
+SQL;
+            $whereClause = <<<'SQL'
+(
+    search_vector @@ COALESCE(q.ws || q.pfx, q.ws)
+    OR search_text % :raw_trgm
+)
+SQL;
+        }
+
         $sql = <<<SQL
 WITH q AS (
   SELECT
@@ -134,19 +169,10 @@ WITH q AS (
     {$pfxExpr} AS pfx
 )
 SELECT "{$model->getKeyName()}" AS id,
-  (
-    CASE WHEN search_vector @@ COALESCE(q.ws || q.pfx, q.ws)
-         THEN {$rankFn}('{$weightsArray}'::real[], search_vector, q.ws, {$rankNorm})
-         ELSE 0
-    END
-  ) * {$ftsWeight}
-  + COALESCE(similarity(search_text, :raw), 0) * {$trgmWeight}
+  {$scoreClause}
     AS _score{$totalCountClause}
 FROM "{$table}", q
-WHERE (
-    search_vector @@ COALESCE(q.ws || q.pfx, q.ws)
-    OR search_text % :raw_trgm
-){$wheresSql}{$whereInsSql}{$whereNotInsSql}
+WHERE {$whereClause}{$wheresSql}{$whereInsSql}{$whereNotInsSql}
 {$orderSql}{$limitSql}
 SQL;
 
