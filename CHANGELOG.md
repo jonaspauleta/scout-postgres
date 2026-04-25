@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`disable_jit` config (default `true`).** Each search transaction issues
+  `SET LOCAL jit = off` so the JIT compile cost (10–30 ms on cold queries)
+  cannot dominate the wall time of FTS queries that themselves complete in
+  single-digit ms. Override with `SCOUT_POSTGRES_DISABLE_JIT=false` on
+  hardware where JIT actually pays off.
 - **`total_count` config (default `false`).** Replaces the previous always-on
   `COUNT(*) OVER()` window aggregate. When false, `getTotalCount()` returns
   the size of the current page rather than the full match set, dropping p95

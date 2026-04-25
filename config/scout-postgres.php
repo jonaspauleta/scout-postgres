@@ -138,4 +138,17 @@ return [
     |       ->paginate(20);
     */
     'total_count' => filter_var(env('SCOUT_POSTGRES_TOTAL_COUNT', false), FILTER_VALIDATE_BOOLEAN),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Disable JIT per query
+    |--------------------------------------------------------------------------
+    |
+    | Postgres' JIT compile cost frequently exceeds savings on FTS queries —
+    | the planner over-estimates row counts on GIN-indexed predicates and
+    | enables JIT, then spends 10–30 ms compiling for a query that runs in
+    | single-digit ms. We disable JIT per transaction (`SET LOCAL jit = off`).
+    | Set to false on hardware where JIT actually pays for itself.
+    */
+    'disable_jit' => filter_var(env('SCOUT_POSTGRES_DISABLE_JIT', true), FILTER_VALIDATE_BOOLEAN),
 ];

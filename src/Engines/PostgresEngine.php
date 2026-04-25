@@ -19,6 +19,8 @@ use ScoutPostgres\Query\SearchQueryBuilder;
 use stdClass;
 
 /**
+ * @phpstan-import-type ScoutPostgresConfig from SearchQueryBuilder
+ *
  * @phpstan-type ScoutHit array{id: int|string, _score: float}
  * @phpstan-type ScoutResults array{hits: list<ScoutHit>, total: int}
  */
@@ -175,11 +177,7 @@ final class PostgresEngine extends Engine
 
         $config = SearchQueryBuilder::resolveConfig($model);
         $strategy = $config['query_strategy'];
-        $thresholdSql = sprintf(
-            'SET LOCAL %s = %F',
-            SearchQueryBuilder::trigramThresholdVariable($config['trigram_function']),
-            $config['trigram_threshold'],
-        );
+        $preludes = $this->buildPreludes($config);
 
         // Short-prefix fast path: single short token bypasses both
         // websearch_to_tsquery and the trigram pass entirely.
@@ -189,7 +187,7 @@ final class PostgresEngine extends Engine
                 ? SearchQueryBuilder::forSearch($builder, mode: 'prefix_fast_path')
                 : SearchQueryBuilder::forPaginate($builder, $perPage, (int) $page, mode: 'prefix_fast_path');
 
-            return $this->executeCompiled($connection, $compiled, $thresholdSql);
+            return $this->executeCompiled($connection, $compiled, $preludes);
         }
 
         // "fts_only" and "hybrid" are single-pass — compile once, run once.
@@ -198,7 +196,7 @@ final class PostgresEngine extends Engine
                 ? SearchQueryBuilder::forSearch($builder, mode: $strategy)
                 : SearchQueryBuilder::forPaginate($builder, $perPage, (int) $page, mode: $strategy);
 
-            return $this->executeCompiled($connection, $compiled, $thresholdSql);
+            return $this->executeCompiled($connection, $compiled, $preludes);
         }
 
         // "adaptive" — try FTS-only first; only fall back to hybrid when FTS
@@ -207,7 +205,7 @@ final class PostgresEngine extends Engine
             ? SearchQueryBuilder::forSearch($builder, mode: 'fts_only')
             : SearchQueryBuilder::forPaginate($builder, $perPage, (int) $page, mode: 'fts_only');
 
-        $ftsResults = $this->executeCompiled($connection, $ftsCompiled, $thresholdSql);
+        $ftsResults = $this->executeCompiled($connection, $ftsCompiled, $preludes);
 
         if ($this->ftsRecallSufficient($ftsResults, $perPage)) {
             return $ftsResults;
@@ -217,13 +215,35 @@ final class PostgresEngine extends Engine
             ? SearchQueryBuilder::forSearch($builder, mode: 'hybrid')
             : SearchQueryBuilder::forPaginate($builder, $perPage, (int) $page, mode: 'hybrid');
 
-        return $this->executeCompiled($connection, $hybridCompiled, $thresholdSql);
+        return $this->executeCompiled($connection, $hybridCompiled, $preludes);
     }
 
     /**
+     * @param  ScoutPostgresConfig  $config
+     * @return list<string>
+     */
+    private function buildPreludes(array $config): array
+    {
+        $preludes = [];
+
+        if ($config['disable_jit']) {
+            $preludes[] = 'SET LOCAL jit = off';
+        }
+
+        $preludes[] = sprintf(
+            'SET LOCAL %s = %F',
+            SearchQueryBuilder::trigramThresholdVariable($config['trigram_function']),
+            $config['trigram_threshold'],
+        );
+
+        return $preludes;
+    }
+
+    /**
+     * @param  list<string>  $preludes
      * @return ScoutResults
      */
-    private function executeCompiled(ConnectionInterface $connection, ?SearchQueryBuilder $compiled, string $thresholdSql): array
+    private function executeCompiled(ConnectionInterface $connection, ?SearchQueryBuilder $compiled, array $preludes): array
     {
         if (! $compiled instanceof SearchQueryBuilder) {
             return ['hits' => [], 'total' => 0];
@@ -232,8 +252,10 @@ final class PostgresEngine extends Engine
         $engine = $this;
 
         /** @var ScoutResults $results */
-        $results = $connection->transaction(static function () use ($engine, $connection, $compiled, $thresholdSql): array {
-            $connection->statement($thresholdSql);
+        $results = $connection->transaction(static function () use ($engine, $connection, $compiled, $preludes): array {
+            foreach ($preludes as $prelude) {
+                $connection->statement($prelude);
+            }
 
             $rows = $connection->select($compiled->sql, $compiled->bindings);
 
