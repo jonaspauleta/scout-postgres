@@ -91,15 +91,21 @@ SCOUT_QUEUE=false
 
 All values are environment-overridable. See `config/scout-postgres.php`.
 
-| Key                         | Env                                  | Default                | Notes                                                                                                          |
-|-----------------------------|--------------------------------------|------------------------|----------------------------------------------------------------------------------------------------------------|
-| `text_search_config`        | `SCOUT_POSTGRES_CONFIG`              | `simple_unaccent`      | Postgres `regconfig` for indexing + querying.                                                                  |
-| `fts_weight`                | `SCOUT_POSTGRES_FTS_WEIGHT`          | `2.0`                  | Multiplier on the `ts_rank` component of the score.                                                            |
-| `trigram_weight`            | `SCOUT_POSTGRES_TRIGRAM_WEIGHT`      | `1.0`                  | Multiplier on the `similarity()` component of the score.                                                       |
-| `trigram_threshold`         | `SCOUT_POSTGRES_TRIGRAM_THRESHOLD`   | `0.3`                  | `SET LOCAL pg_trgm.similarity_threshold` per query. Lower = more recall + more noise. Tune **higher** for long-text corpora — see Production notes. |
-| `rank_function`             | `SCOUT_POSTGRES_RANK_FUNCTION`       | `ts_rank`              | `ts_rank` (frequency) or `ts_rank_cd` (cover density).                                                         |
-| `rank_weights`              | —                                    | `[0.1, 0.2, 0.4, 1.0]` | Multipliers for D / C / B / A columns.                                                                         |
-| `rank_normalization`        | `SCOUT_POSTGRES_RANK_NORMALIZATION`  | `32`                   | [Postgres rank normalization bitmask](https://www.postgresql.org/docs/current/textsearch-controls.html).       |
+| Key                            | Env                                            | Default                | Notes                                                                                                                                                |
+|--------------------------------|------------------------------------------------|------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `text_search_config`           | `SCOUT_POSTGRES_CONFIG`                        | `simple_unaccent`      | Postgres `regconfig` for indexing + querying.                                                                                                        |
+| `fts_weight`                   | `SCOUT_POSTGRES_FTS_WEIGHT`                    | `2.0`                  | Multiplier on the `ts_rank` component of the score.                                                                                                  |
+| `trigram_weight`               | `SCOUT_POSTGRES_TRIGRAM_WEIGHT`                | `1.0`                  | Multiplier on the trigram component of the score.                                                                                                    |
+| `trigram_threshold`            | `SCOUT_POSTGRES_TRIGRAM_THRESHOLD`             | `0.3`                  | `SET LOCAL pg_trgm.<fn>_threshold` per query. Lower = more recall + more noise. Tune **higher** for long-text corpora — see Production notes.        |
+| `trigram_function`             | `SCOUT_POSTGRES_TRIGRAM_FUNCTION`              | `similarity`           | `similarity` / `word_similarity` / `strict_word_similarity`. Picks the operator (`%` / `<%` / `<<%`) and matching threshold variable. See Performance.|
+| `rank_function`                | `SCOUT_POSTGRES_RANK_FUNCTION`                 | `ts_rank`              | `ts_rank` (frequency) or `ts_rank_cd` (cover density).                                                                                               |
+| `rank_weights`                 | —                                              | `[0.1, 0.2, 0.4, 1.0]` | Multipliers for D / C / B / A columns.                                                                                                               |
+| `rank_normalization`           | `SCOUT_POSTGRES_RANK_NORMALIZATION`            | `32`                   | [Postgres rank normalization bitmask](https://www.postgresql.org/docs/current/textsearch-controls.html).                                             |
+| `query_strategy`               | `SCOUT_POSTGRES_QUERY_STRATEGY`                | `adaptive`             | `adaptive` (FTS first, hybrid on miss), `hybrid` (single-pass FTS+trigram), `fts_only` (no trigram). See Performance.                                |
+| `prefix_fast_path`             | `SCOUT_POSTGRES_PREFIX_FAST_PATH`              | `true`                 | Single short tokens skip `websearch_to_tsquery` and the trigram pass; only `to_tsquery(:prefix:*)` runs.                                             |
+| `prefix_fast_path_max_length`  | `SCOUT_POSTGRES_PREFIX_FAST_PATH_MAX_LENGTH`   | `6`                    | Length below which `prefix_fast_path` triggers (exclusive).                                                                                          |
+| `disable_jit`                  | `SCOUT_POSTGRES_DISABLE_JIT`                   | `true`                 | Issues `SET LOCAL jit = off` per search transaction. JIT compile cost typically exceeds savings on FTS queries.                                      |
+| `total_count`                  | `SCOUT_POSTGRES_TOTAL_COUNT`                   | `false`                | When `true`, every query computes `COUNT(*) OVER()` so paginators can show the full match-set total. Off by default for lower p95 — see Performance. |
 
 ## Make a model searchable
 
@@ -214,7 +220,32 @@ Any subset of the global config keys is accepted. Unset keys fall back to `confi
 
 ## How it works
 
-For each search Scout runs a single query roughly shaped as:
+The engine picks one of three SQL shapes per query, depending on the
+configured `query_strategy` and whether the query is a single short token.
+
+### Adaptive (default): FTS-first with trigram fallback
+
+A common single token like `world` or a multi-token phrase that the FTS
+tokenizer can match runs only the cheaper FTS query:
+
+```sql
+WITH q AS (
+  SELECT websearch_to_tsquery('simple_unaccent', :query)        AS ws,
+         to_tsquery('simple_unaccent', :prefix_query)           AS pfx
+)
+SELECT id,
+       (CASE WHEN search_vector @@ COALESCE(q.ws || q.pfx, q.ws)
+             THEN ts_rank(weights, search_vector, q.ws, normalization)
+             ELSE 0 END) * fts_weight AS _score
+FROM "tracks", q
+WHERE search_vector @@ COALESCE(q.ws || q.pfx, q.ws)
+ORDER BY _score DESC, "id" ASC
+LIMIT :perPage OFFSET :offset;
+```
+
+When the FTS pass returns fewer rows than the requested page, the engine
+re-runs the **hybrid** query that adds a trigram-similarity arm so typo and
+fuzzy queries still recover:
 
 ```sql
 WITH q AS (
@@ -225,8 +256,7 @@ SELECT id,
        (CASE WHEN search_vector @@ COALESCE(q.ws || q.pfx, q.ws)
              THEN ts_rank(weights, search_vector, q.ws, normalization)
              ELSE 0 END) * fts_weight
-       + COALESCE(similarity(search_text, :raw), 0) * trigram_weight AS _score,
-       COUNT(*) OVER() AS _total
+       + COALESCE(similarity(search_text, :raw), 0) * trigram_weight AS _score
 FROM "tracks", q
 WHERE search_vector @@ COALESCE(q.ws || q.pfx, q.ws)
    OR search_text % :raw
@@ -234,9 +264,73 @@ ORDER BY _score DESC, "id" ASC
 LIMIT :perPage OFFSET :offset;
 ```
 
-The hybrid `WHERE` clause means a row matches if **either** the websearch tsquery (with prefix expansion of the last token) **or** the trigram similarity passes. Each row is scored once; pagination uses a window function so the total count comes back without a second round-trip.
+So in the worst case adaptive runs two queries; in the common case it runs
+one. `query_strategy=hybrid` forces single-pass FTS+trigram for every
+query (the pre-1.0 behaviour). `query_strategy=fts_only` never runs the
+trigram pass — fastest but loses typo recovery.
 
-All user input is parameterised. Config values (weights, normalisation) are numeric and inlined.
+### Short-prefix fast path
+
+When the query is a single token shorter than `prefix_fast_path_max_length`
+(default 6) and contains no whitespace or quotes, the engine takes a
+dedicated path that skips both `websearch_to_tsquery` and the trigram
+pass entirely:
+
+```sql
+WITH q AS (
+  SELECT to_tsquery('simple_unaccent', :prefix_query) AS pfx
+)
+SELECT id,
+       ts_rank(weights, search_vector, q.pfx, normalization) * fts_weight AS _score
+FROM "tracks", q
+WHERE search_vector @@ q.pfx
+ORDER BY _score DESC, "id" ASC
+LIMIT :perPage OFFSET :offset;
+```
+
+This is the dominant win for as-you-type UIs: short prefixes used to
+produce huge candidate sets via the trigram bitmap. Disable with
+`SCOUT_POSTGRES_PREFIX_FAST_PATH=false`.
+
+### Common to all paths
+
+- All user input is parameterised (`:query`, `:prefix_query`, `:raw`,
+  filter values). Config values (weights, normalisation) are numeric and
+  inlined.
+- `total_count=true` adds a `COUNT(*) OVER() AS _total` column to whichever
+  query runs.
+- `disable_jit=true` issues `SET LOCAL jit = off` per transaction — the
+  JIT compile cost frequently exceeds savings on FTS queries.
+
+## Performance
+
+scout-postgres is tuned out of the box for the common Scout-driver workload
+(short queries, paginated lists, sub-100 ms latency budgets). The defaults
+that matter:
+
+- **Adaptive query strategy** (`query_strategy=adaptive`) — runs the cheaper
+  FTS-only query first; falls back to FTS+trigram only when FTS recall is
+  insufficient. Cuts trigram-bitmap cost on common queries.
+- **Short-prefix fast path** (`prefix_fast_path=true`,
+  `prefix_fast_path_max_length=6`) — single short tokens like `phil` skip
+  both `websearch_to_tsquery` and the trigram pass; only `to_tsquery(:prefix:*)`
+  runs. The dominant win for as-you-type UIs.
+- **`total_count=false`** — `COUNT(*) OVER()` is omitted by default; latency
+  scales with **page size** instead of match-set size. Opt back in
+  per-query when an exact total is required.
+- **JIT off per query** (`disable_jit=true`) — Postgres' JIT compile cost
+  (10–30 ms cold) frequently exceeds savings on FTS queries that themselves
+  complete in single-digit ms.
+- **`search_text` cap (1000 chars)** — the `postgresSearchable()` migration
+  macro wraps the concatenated text in `LEFT(...)` so trigram cost is
+  bounded regardless of source-column length.
+- **`trigram_function=similarity`** — paired with the default
+  `trigram_threshold=0.3`. `word_similarity` and `strict_word_similarity`
+  are available as opt-in tunings; their thresholds have different
+  semantics so re-tune the threshold when switching.
+
+See [`benchmarks/`](benchmarks/) for measured numbers on a 50,150-row
+corpus, including before/after deltas vs `1.0.0`.
 
 ## Production notes
 
@@ -278,17 +372,23 @@ public function scoutPostgresConfig(): array
 
 ### Total-count cost — `COUNT(*) OVER()`
 
-By default every search query computes `COUNT(*) OVER()` so `getTotalCount()` reflects the size of the full match set, not just the current page. The trade-off is real: the window aggregate forces Postgres to materialise every matching row before applying `LIMIT`, so latency scales with **match-set size**, not page size.
-
-If you do not need a precise total — for example, "show 20 results, link to next page" — opt out per query:
+By default `getTotalCount()` returns the size of the current page only —
+the SQL omits `COUNT(*) OVER()` and latency scales with page size rather
+than match-set size. Opt back in when you need a precise total:
 
 ```php
 Book::search('foo')
-    ->options(['scout_postgres' => ['total_count' => false]])
+    ->options(['scout_postgres' => ['total_count' => true]])
     ->paginate(20);
 ```
 
-When opted out, `getTotalCount()` returns the size of the current page rather than the full match set; in exchange, latency drops to roughly the cost of fetching the top `N` rows.
+Or globally via `SCOUT_POSTGRES_TOTAL_COUNT=true` to restore the pre-1.0
+default for every search.
+
+When `total_count` is enabled the window aggregate forces Postgres to
+materialise every matching row before applying `LIMIT`, so latency scales
+with **match-set size** — measurable on broad-match queries against
+million-row corpora.
 
 ## Stability
 
@@ -320,6 +420,29 @@ The model's connection driver is not `pgsql`. Check `config/database.php` and th
 
 **`text search configuration "simple_unaccent" does not exist`**
 The package migration did not run. Run `php artisan migrate`. The package's own migration is loaded automatically — no `--path` flag is needed.
+
+## Upgrading from earlier 1.x releases
+
+The post-1.0.0 work flips several behavioural defaults to make the
+out-of-the-box experience faster on common Scout-driver workloads. Each is
+backed by a config key so the old behaviour can be restored without code
+changes — useful when an existing deployment depends on the previous
+ranking or pagination semantics.
+
+| Change                                      | Restore old behaviour                                |
+|---------------------------------------------|------------------------------------------------------|
+| Adaptive query strategy (FTS-first)         | `SCOUT_POSTGRES_QUERY_STRATEGY=hybrid`               |
+| Short-prefix fast path                      | `SCOUT_POSTGRES_PREFIX_FAST_PATH=false`              |
+| `COUNT(*) OVER()` omitted by default        | `SCOUT_POSTGRES_TOTAL_COUNT=true`                    |
+| `SET LOCAL jit = off` per query             | `SCOUT_POSTGRES_DISABLE_JIT=false`                   |
+| `search_text` capped at 1000 chars (new migrations only) | pass `0` as the third macro arg: `$table->postgresSearchable($weights, null, 0)` |
+
+Existing `search_text` columns are unaffected by the cap — only new
+migrations applying `postgresSearchable()` pick up the `LEFT(...)` wrapper.
+
+The legacy `ApexScout\ScoutPostgres\` namespace is preserved as
+`class_alias` shims through `1.x` and will be removed in `2.0`. Update
+imports to `ScoutPostgres\…` ahead of `2.0`.
 
 ## Testing
 

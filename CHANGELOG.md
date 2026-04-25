@@ -77,6 +77,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   imports to `ScoutPostgres\…` before `2.0`** — the legacy namespace will be
   dropped there.
 
+### Performance
+
+Measured at 50,150 rows / hot cache, post-1.0.0 defaults vs `1.0.0` (full
+table in `benchmarks/README.md`):
+
+- `phil` (short prefix as-you-type):     **599.5 ms → 4.0 ms** (151× faster)
+- `modern history` (multi-token FTS):    **185.7 ms → 4.9 ms** (38×)
+- `philosophical exposition` (broad):     **82.6 ms → 4.6 ms** (18×)
+- `world` (common single token):           **8.9 ms → 4.0 ms** (2.2×)
+- `philosphy` (typo, falls back hybrid):    9.2 ms → 13.1 ms (small fallback overhead)
+- `qwxzqwxzqwxz` (no match, falls back):    4.6 ms → 7.9 ms
+
+The two slower cases pay a ~3 ms adaptive-fallback overhead because the
+engine runs the cheap FTS query first, sees zero hits, then re-runs the
+hybrid trigram query. Both still well within the package's
+sub-100 ms latency budget; the latency floor for typical paginated
+queries is now bounded by page size rather than match-set size.
+
+### Repository
+
+- Replaced bug / feature issue templates with YAML form versions and
+  disabled blank issues via `.github/ISSUE_TEMPLATE/config.yml`.
+- Added `.github/FUNDING.yml`.
+- CI uploads coverage to Codecov on the highest matrix entry; README
+  badge added.
+
 ## [1.0.0] - 2026-04-25
 
 ### Added
