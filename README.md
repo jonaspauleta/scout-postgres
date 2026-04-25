@@ -289,9 +289,15 @@ Book::search('foo')
 
 When opted out, `getTotalCount()` returns the size of the current page rather than the full match set; in exchange, latency drops to roughly the cost of fetching the top `N` rows.
 
+## Stability
+
+The package is **stable** as of `v1.0.0`. The public API — the `postgresSearchable()` migration macro, the `dropPostgresSearchable()` macro, the `PostgresSearchable` contract, the `pgsql` Scout engine driver name, and the keys in `config/scout-postgres.php` — is committed across the entire `1.x` line. Breaking changes will land on a `2.0.0` release tag and will be documented in `CHANGELOG.md` with a migration note.
+
+The legacy PHP namespace `ApexScout\ScoutPostgres\` is preserved as `class_alias` shims through `1.x` and will be removed in `2.0`.
+
 ## Limitations
 
-By design, this package targets the 80% case. The following are **not** in v1:
+By design, this package targets the 80% case. The following are **not** in scope for the `1.x` line:
 
 - No synonym / stopword customisation beyond what your `regconfig` provides.
 - No relevance feedback / learning-to-rank.
