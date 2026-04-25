@@ -138,8 +138,9 @@ test('unrecognised scout_postgres option keys leave totals enabled by default', 
 test('mode=hybrid (default) preserves trigram clause and bindings', function (): void {
     $result = compile('jon');
 
-    expect($result->sql)->toContain('search_text % :raw_trgm')
-        ->and($result->sql)->toContain('similarity(search_text, :raw)')
+    expect($result->sql)->toContain(':raw_trgm')
+        ->and($result->sql)->toContain('search_text')
+        ->and($result->sql)->toContain(':raw')
         ->and($result->bindings)->toHaveKey('raw')
         ->and($result->bindings)->toHaveKey('raw_trgm');
 });
@@ -155,6 +156,42 @@ test('mode=fts_only drops trigram clause from WHERE and score', function (): voi
         ->and($result->sql)->toContain('search_vector @@')
         ->and($result->bindings)->not->toHaveKey('raw')
         ->and($result->bindings)->not->toHaveKey('raw_trgm');
+});
+
+test('mode=hybrid uses configured trigram_function in score and where', function (): void {
+    config()->set('scout-postgres.trigram_function', 'word_similarity');
+
+    $result = compile('jon');
+
+    expect($result->sql)->toContain('word_similarity(search_text, :raw)')
+        ->and($result->sql)->toContain('search_text <% :raw_trgm');
+});
+
+test('strict_word_similarity uses <<% operator and matching score function', function (): void {
+    config()->set('scout-postgres.trigram_function', 'strict_word_similarity');
+
+    $result = compile('jon');
+
+    expect($result->sql)->toContain('strict_word_similarity(search_text, :raw)')
+        ->and($result->sql)->toContain('search_text <<% :raw_trgm');
+});
+
+test('similarity (legacy) uses % operator and similarity() function', function (): void {
+    config()->set('scout-postgres.trigram_function', 'similarity');
+
+    $result = compile('jon');
+
+    expect($result->sql)->toContain('similarity(search_text, :raw)')
+        ->and($result->sql)->toContain('search_text % :raw_trgm');
+});
+
+test('trigramThresholdVariable maps function name to GUC name', function (): void {
+    expect(SearchQueryBuilder::trigramThresholdVariable('similarity'))
+        ->toBe('pg_trgm.similarity_threshold')
+        ->and(SearchQueryBuilder::trigramThresholdVariable('word_similarity'))
+        ->toBe('pg_trgm.word_similarity_threshold')
+        ->and(SearchQueryBuilder::trigramThresholdVariable('strict_word_similarity'))
+        ->toBe('pg_trgm.strict_word_similarity_threshold');
 });
 
 test('mode=fts_only preserves user wheres and pagination', function (): void {

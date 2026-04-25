@@ -18,6 +18,7 @@ use ScoutPostgres\Contracts\PostgresSearchable;
  *   rank_weights: array<int, float>,
  *   rank_normalization: int,
  *   query_strategy: string,
+ *   trigram_function: string,
  * }
  */
 final readonly class SearchQueryBuilder
@@ -66,7 +67,39 @@ final readonly class SearchQueryBuilder
             'rank_weights' => self::resolveWeights($override),
             'rank_normalization' => self::resolveInt($override, 'rank_normalization', 32),
             'query_strategy' => self::resolveString($override, 'query_strategy', 'adaptive'),
+            'trigram_function' => self::resolveString($override, 'trigram_function', 'word_similarity'),
         ];
+    }
+
+    /**
+     * Postgres `pg_trgm` operator for the chosen `trigram_function`.
+     *
+     * - `similarity`             → `%`
+     * - `word_similarity`        → `<%`
+     * - `strict_word_similarity` → `<<%`
+     */
+    public static function trigramOperator(string $function): string
+    {
+        return match ($function) {
+            'word_similarity' => '<%',
+            'strict_word_similarity' => '<<%',
+            default => '%',
+        };
+    }
+
+    /**
+     * Postgres GUC name for the threshold of the chosen `trigram_function`.
+     *
+     * The setting variable name must match the operator family or the threshold
+     * has no effect. Postgres exposes one variable per family.
+     */
+    public static function trigramThresholdVariable(string $function): string
+    {
+        return match ($function) {
+            'word_similarity' => 'pg_trgm.word_similarity_threshold',
+            'strict_word_similarity' => 'pg_trgm.strict_word_similarity_threshold',
+            default => 'pg_trgm.similarity_threshold',
+        };
     }
 
     /**
@@ -145,6 +178,9 @@ final readonly class SearchQueryBuilder
 SQL;
             $whereClause = 'search_vector @@ COALESCE(q.ws || q.pfx, q.ws)';
         } else {
+            $trgmFn = $config['trigram_function'];
+            $trgmOp = self::trigramOperator($trgmFn);
+
             $scoreClause = <<<SQL
 (
     CASE WHEN search_vector @@ COALESCE(q.ws || q.pfx, q.ws)
@@ -152,12 +188,12 @@ SQL;
          ELSE 0
     END
   ) * {$ftsWeight}
-  + COALESCE(similarity(search_text, :raw), 0) * {$trgmWeight}
+  + COALESCE({$trgmFn}(search_text, :raw), 0) * {$trgmWeight}
 SQL;
-            $whereClause = <<<'SQL'
+            $whereClause = <<<SQL
 (
     search_vector @@ COALESCE(q.ws || q.pfx, q.ws)
-    OR search_text % :raw_trgm
+    OR search_text {$trgmOp} :raw_trgm
 )
 SQL;
         }

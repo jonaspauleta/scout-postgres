@@ -175,7 +175,11 @@ final class PostgresEngine extends Engine
 
         $config = SearchQueryBuilder::resolveConfig($model);
         $strategy = $config['query_strategy'];
-        $threshold = $config['trigram_threshold'];
+        $thresholdSql = sprintf(
+            'SET LOCAL %s = %F',
+            SearchQueryBuilder::trigramThresholdVariable($config['trigram_function']),
+            $config['trigram_threshold'],
+        );
 
         // "fts_only" and "hybrid" are single-pass — compile once, run once.
         if ($strategy === 'fts_only' || $strategy === 'hybrid') {
@@ -183,7 +187,7 @@ final class PostgresEngine extends Engine
                 ? SearchQueryBuilder::forSearch($builder, mode: $strategy)
                 : SearchQueryBuilder::forPaginate($builder, $perPage, (int) $page, mode: $strategy);
 
-            return $this->executeCompiled($connection, $compiled, $threshold);
+            return $this->executeCompiled($connection, $compiled, $thresholdSql);
         }
 
         // "adaptive" — try FTS-only first; only fall back to hybrid when FTS
@@ -192,7 +196,7 @@ final class PostgresEngine extends Engine
             ? SearchQueryBuilder::forSearch($builder, mode: 'fts_only')
             : SearchQueryBuilder::forPaginate($builder, $perPage, (int) $page, mode: 'fts_only');
 
-        $ftsResults = $this->executeCompiled($connection, $ftsCompiled, $threshold);
+        $ftsResults = $this->executeCompiled($connection, $ftsCompiled, $thresholdSql);
 
         if ($this->ftsRecallSufficient($ftsResults, $perPage)) {
             return $ftsResults;
@@ -202,13 +206,13 @@ final class PostgresEngine extends Engine
             ? SearchQueryBuilder::forSearch($builder, mode: 'hybrid')
             : SearchQueryBuilder::forPaginate($builder, $perPage, (int) $page, mode: 'hybrid');
 
-        return $this->executeCompiled($connection, $hybridCompiled, $threshold);
+        return $this->executeCompiled($connection, $hybridCompiled, $thresholdSql);
     }
 
     /**
      * @return ScoutResults
      */
-    private function executeCompiled(ConnectionInterface $connection, ?SearchQueryBuilder $compiled, float $trigramThreshold): array
+    private function executeCompiled(ConnectionInterface $connection, ?SearchQueryBuilder $compiled, string $thresholdSql): array
     {
         if (! $compiled instanceof SearchQueryBuilder) {
             return ['hits' => [], 'total' => 0];
@@ -217,11 +221,8 @@ final class PostgresEngine extends Engine
         $engine = $this;
 
         /** @var ScoutResults $results */
-        $results = $connection->transaction(static function () use ($engine, $connection, $compiled, $trigramThreshold): array {
-            $connection->statement(sprintf(
-                'SET LOCAL pg_trgm.similarity_threshold = %F',
-                $trigramThreshold,
-            ));
+        $results = $connection->transaction(static function () use ($engine, $connection, $compiled, $thresholdSql): array {
+            $connection->statement($thresholdSql);
 
             $rows = $connection->select($compiled->sql, $compiled->bindings);
 

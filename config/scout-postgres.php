@@ -29,7 +29,8 @@ return [
     | Trigram Similarity Threshold
     |--------------------------------------------------------------------------
     |
-    | Applied per-transaction via SET LOCAL pg_trgm.similarity_threshold.
+    | Applied per-transaction via SET LOCAL pg_trgm.<fn>_threshold (the
+    | threshold variable name follows the chosen `trigram_function`).
     | Lower = more recall, more noise. Higher = stricter fuzzy matching.
     |
     | The default 0.3 is tuned for typical mixed-length corpora (titles,
@@ -39,6 +40,25 @@ return [
     | Tune per model via `scoutPostgresConfig()` if your text is long.
     */
     'trigram_threshold' => (float) env('SCOUT_POSTGRES_TRIGRAM_THRESHOLD', 0.3),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Trigram Function
+    |--------------------------------------------------------------------------
+    |
+    | Selects the pg_trgm function and operator used for fuzzy matching:
+    |
+    |   "similarity"             — operator `%`,  whole-string overlap
+    |   "word_similarity"        — operator `<%`, considers only words near
+    |                              the query; cheaper on long-text corpora
+    |   "strict_word_similarity" — operator `<<%`, requires extent boundaries
+    |                              to align (most selective)
+    |
+    | Default is `word_similarity` because it is materially faster on
+    | long-text columns (multi-paragraph summaries) where whole-string
+    | similarity wastes work on irrelevant tail content.
+    */
+    'trigram_function' => env('SCOUT_POSTGRES_TRIGRAM_FUNCTION', 'word_similarity'),
 
     /*
     |--------------------------------------------------------------------------
