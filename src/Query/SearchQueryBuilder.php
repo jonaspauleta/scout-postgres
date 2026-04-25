@@ -296,13 +296,15 @@ SQL;
     /**
      * Whether the engine should compute a total match count via `COUNT(*) OVER()`.
      *
-     * Default: true. Users can opt out per-query for broader scans where the
-     * window-aggregate over the full match set is the latency bottleneck:
+     * Default: `config('scout-postgres.total_count')` (which itself defaults to
+     * `false`). Users can opt back in per-query when they actually need a
+     * full-match-set total:
      *
-     *     Book::search('foo')->options(['scout_postgres' => ['total_count' => false]])
+     *     Book::search('foo')->options(['scout_postgres' => ['total_count' => true]])
      *
-     * When opted out, `getTotalCount()` reflects only the rows returned by the
-     * current page, not the size of the underlying match set.
+     * When the total count is omitted, `getTotalCount()` reflects only the
+     * rows returned by the current page, not the size of the underlying
+     * match set.
      *
      * @param  Builder<Model>  $builder
      */
@@ -312,15 +314,13 @@ SQL;
         $options = $builder->options;
         $scout = $options['scout_postgres'] ?? null;
 
-        if (! is_array($scout)) {
-            return true;
+        if (is_array($scout) && array_key_exists('total_count', $scout)) {
+            return (bool) $scout['total_count'];
         }
 
-        if (! array_key_exists('total_count', $scout)) {
-            return true;
-        }
+        $default = config('scout-postgres.total_count', false);
 
-        return (bool) $scout['total_count'];
+        return is_bool($default) && $default;
     }
 
     /**

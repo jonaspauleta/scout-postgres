@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`total_count` config (default `false`).** Replaces the previous always-on
+  `COUNT(*) OVER()` window aggregate. When false, `getTotalCount()` returns
+  the size of the current page rather than the full match set, dropping p95
+  on broad queries from match-set-bound to page-size-bound. Per-query opt-in
+  remains available via
+  `->options(['scout_postgres' => ['total_count' => true]])`.
 - **`prefix_fast_path` config (default `true`) and `prefix_fast_path_max_length`
   (default `6`).** Single short tokens (e.g. `phil`, `nurb`) bypass
   `websearch_to_tsquery` and the trigram pass entirely; the engine runs only
@@ -33,6 +39,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Default `total_count` flipped from `true` to `false`.** The previous
+  default forced Postgres to materialise every matching row before applying
+  `LIMIT`, so latency scaled with match-set size rather than page size. The
+  per-query opt-out shipped in 1.0.0; this release flips the default. Apps
+  relying on `LengthAwarePaginator::total()` showing the full match set must
+  set `SCOUT_POSTGRES_TOTAL_COUNT=true` to restore the old behaviour, or
+  pass `->options(['scout_postgres' => ['total_count' => true]])` per-query.
 - **Default `trigram_function` is now `word_similarity`** (was effectively
   `similarity` in 1.0.0). On long-text corpora the new default cuts the
   trigram cost without measurable recall loss; on short titles the two are

@@ -54,7 +54,6 @@ test('canonical query produces parameterised SQL', function (): void {
         ->and($result->sql)->toContain('websearch_to_tsquery')
         ->and($result->sql)->toContain('search_vector')
         ->and($result->sql)->toContain('search_text')
-        ->and($result->sql)->toContain('COUNT(*) OVER()')
         ->and($result->sql)->toContain('ORDER BY _score DESC');
 
     expect($result->bindings)
@@ -111,6 +110,12 @@ test('pagination adds LIMIT and OFFSET', function (): void {
         ->and($result->sql)->toContain('OFFSET 40');
 });
 
+test('default omits COUNT(*) OVER from SQL', function (): void {
+    $result = compile('jon');
+
+    expect($result->sql)->not->toContain('COUNT(*) OVER()');
+});
+
 test('total_count=false omits COUNT(*) OVER from SQL', function (): void {
     $result = compile('jon', [
         'options' => [['scout_postgres' => ['total_count' => false]]],
@@ -127,12 +132,20 @@ test('total_count=true keeps COUNT(*) OVER in SQL', function (): void {
     expect($result->sql)->toContain('COUNT(*) OVER()');
 });
 
-test('unrecognised scout_postgres option keys leave totals enabled by default', function (): void {
+test('config total_count=true keeps COUNT(*) OVER without per-query option', function (): void {
+    config()->set('scout-postgres.total_count', true);
+
+    $result = compile('jon');
+
+    expect($result->sql)->toContain('COUNT(*) OVER()');
+});
+
+test('unrecognised scout_postgres option keys defer to config default', function (): void {
     $result = compile('jon', [
         'options' => [['scout_postgres' => ['unknown_key' => 'value']]],
     ]);
 
-    expect($result->sql)->toContain('COUNT(*) OVER()');
+    expect($result->sql)->not->toContain('COUNT(*) OVER()');
 });
 
 test('mode=hybrid (default) preserves trigram clause and bindings', function (): void {

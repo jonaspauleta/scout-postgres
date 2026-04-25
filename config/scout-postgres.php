@@ -118,4 +118,24 @@ return [
     */
     'prefix_fast_path' => filter_var(env('SCOUT_POSTGRES_PREFIX_FAST_PATH', true), FILTER_VALIDATE_BOOLEAN),
     'prefix_fast_path_max_length' => (int) env('SCOUT_POSTGRES_PREFIX_FAST_PATH_MAX_LENGTH', 6),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Total Count (COUNT(*) OVER())
+    |--------------------------------------------------------------------------
+    |
+    | When true, every search query computes `COUNT(*) OVER()` so paginators
+    | can show the size of the full match set. The window aggregate forces
+    | Postgres to materialise every matching row before applying LIMIT, so
+    | latency scales with match-set size rather than page size — on broad
+    | queries this dominates p95.
+    |
+    | Default is `false`: the page total reflects the size of the current
+    | page only. Opt back in per-query when an exact total is required:
+    |
+    |   Book::search('foo')
+    |       ->options(['scout_postgres' => ['total_count' => true]])
+    |       ->paginate(20);
+    */
+    'total_count' => filter_var(env('SCOUT_POSTGRES_TOTAL_COUNT', false), FILTER_VALIDATE_BOOLEAN),
 ];
