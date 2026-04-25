@@ -8,9 +8,8 @@
 /src/Schema/CLAUDE.md export-ignore
 /tests/CLAUDE.md      export-ignore
 
-# Tests, fixtures, benchmarks.
+# Tests + fixtures (heavy, dev-only).
 /tests                export-ignore
-/benchmarks           export-ignore
 
 # CI + repo hygiene.
 /.github              export-ignore

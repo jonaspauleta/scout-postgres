@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-04-25
+
+### Added
+
+- **`total_count` per-query option.** Pass
+  `->options(['scout_postgres' => ['total_count' => false]])` to skip the
+  `COUNT(*) OVER()` window aggregate. Latency drops to roughly the cost of
+  fetching the top `N` rows; in exchange, `getTotalCount()` reflects only
+  the size of the current page rather than the full match set.
+- **Benchmark harness** under `benchmarks/`: methodology, vendored artisan
+  command source, and a results table comparing `scout-postgres` against
+  Scout's `database` driver across seven query shapes on 50,150 rows.
+- README "Production notes" section now covers `trigram_threshold` tuning
+  per corpus and the `total_count` opt-out, with concrete latency numbers
+  taken from the benchmark.
+
+### Changed
+
+- **Default `trigram_threshold` raised from `0.15` to `0.3`.** The previous
+  default optimised for very short text (titles, names); on long-text
+  corpora it produced trigram-bitmap candidate sets so large that `p95`
+  latency hit the seconds. The new default is safer for typical mixed-length
+  corpora; see `Production notes` for tuning guidance and benchmark numbers.
+  - **Migration:** if you indexed only short fields and want the previous
+    fuzzy-recall behaviour, set
+    `SCOUT_POSTGRES_TRIGRAM_THRESHOLD=0.15` or override per model via
+    `scoutPostgresConfig()`.
+
+### Stability
+
+- This is the first release tagged as **stable** under SemVer.
+  `scout-postgres` is now committed to a non-breaking public API across the
+  `1.x` line. Configuration keys, the `PostgresSearchable` contract, the
+  `postgresSearchable()` schema macro, and the engine driver name (`pgsql`)
+  are all part of the API surface.
+
 ## [0.4.1] - 2026-04-25
 
 ### Fixed
@@ -75,7 +111,8 @@ If your `composer.json` declared a VCS repo for this package, remove that block 
 
 - Initial release: Postgres 18 full-text search + `pg_trgm` engine for Laravel Scout.
 
-[Unreleased]: https://github.com/jonaspauleta/scout-postgres/compare/v0.4.1...HEAD
+[Unreleased]: https://github.com/jonaspauleta/scout-postgres/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/jonaspauleta/scout-postgres/releases/tag/v1.0.0
 [0.4.1]: https://github.com/jonaspauleta/scout-postgres/releases/tag/v0.4.1
 [0.4.0]: https://github.com/jonaspauleta/scout-postgres/releases/tag/v0.4.0
 [0.3.0]: https://github.com/jonaspauleta/scout-postgres/releases/tag/v0.3.0

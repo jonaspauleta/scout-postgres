@@ -31,8 +31,14 @@ return [
     |
     | Applied per-transaction via SET LOCAL pg_trgm.similarity_threshold.
     | Lower = more recall, more noise. Higher = stricter fuzzy matching.
+    |
+    | The default 0.3 is tuned for typical mixed-length corpora (titles,
+    | authors, short descriptions). On long-text corpora (multi-paragraph
+    | summaries, full articles), a lower threshold (e.g. 0.15) explodes the
+    | trigram-bitmap candidate set and pushes p95 latency into the seconds.
+    | Tune per model via `scoutPostgresConfig()` if your text is long.
     */
-    'trigram_threshold' => (float) env('SCOUT_POSTGRES_TRIGRAM_THRESHOLD', 0.15),
+    'trigram_threshold' => (float) env('SCOUT_POSTGRES_TRIGRAM_THRESHOLD', 0.3),
 
     /*
     |--------------------------------------------------------------------------

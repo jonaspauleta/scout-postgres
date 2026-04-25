@@ -60,7 +60,7 @@ final readonly class SearchQueryBuilder
             'text_search_config' => self::resolveString($override, 'text_search_config', 'simple_unaccent'),
             'fts_weight' => self::resolveFloat($override, 'fts_weight', 2.0),
             'trigram_weight' => self::resolveFloat($override, 'trigram_weight', 1.0),
-            'trigram_threshold' => self::resolveFloat($override, 'trigram_threshold', 0.15),
+            'trigram_threshold' => self::resolveFloat($override, 'trigram_threshold', 0.3),
             'rank_function' => self::resolveString($override, 'rank_function', 'ts_rank'),
             'rank_weights' => self::resolveWeights($override),
             'rank_normalization' => self::resolveInt($override, 'rank_normalization', 32),
@@ -123,6 +123,10 @@ final readonly class SearchQueryBuilder
             unset($bindings['prefix_query']);
         }
 
+        $totalCountClause = self::wantsTotalCount($builder)
+            ? ",\n  COUNT(*) OVER() AS _total"
+            : '';
+
         $sql = <<<SQL
 WITH q AS (
   SELECT
@@ -137,8 +141,7 @@ SELECT "{$model->getKeyName()}" AS id,
     END
   ) * {$ftsWeight}
   + COALESCE(similarity(search_text, :raw), 0) * {$trgmWeight}
-    AS _score,
-  COUNT(*) OVER() AS _total
+    AS _score{$totalCountClause}
 FROM "{$table}", q
 WHERE (
     search_vector @@ COALESCE(q.ws || q.pfx, q.ws)
@@ -148,6 +151,36 @@ WHERE (
 SQL;
 
         return new self($sql, $bindings);
+    }
+
+    /**
+     * Whether the engine should compute a total match count via `COUNT(*) OVER()`.
+     *
+     * Default: true. Users can opt out per-query for broader scans where the
+     * window-aggregate over the full match set is the latency bottleneck:
+     *
+     *     Book::search('foo')->options(['scout_postgres' => ['total_count' => false]])
+     *
+     * When opted out, `getTotalCount()` reflects only the rows returned by the
+     * current page, not the size of the underlying match set.
+     *
+     * @param  Builder<Model>  $builder
+     */
+    private static function wantsTotalCount(Builder $builder): bool
+    {
+        /** @var array<string, mixed> $options */
+        $options = $builder->options;
+        $scout = $options['scout_postgres'] ?? null;
+
+        if (! is_array($scout)) {
+            return true;
+        }
+
+        if (! array_key_exists('total_count', $scout)) {
+            return true;
+        }
+
+        return (bool) $scout['total_count'];
     }
 
     /**

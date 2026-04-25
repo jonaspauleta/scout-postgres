@@ -23,7 +23,7 @@ test('below-threshold typo is excluded', function (): void {
 });
 
 test('per-model threshold override is honoured', function (): void {
-    // default threshold 0.15; override to 0.9 → stricter.
+    // default threshold 0.3; override to 0.9 → stricter.
     config()->set('scout-postgres.trigram_threshold', 0.9);
 
     Book::factory()->create(['title' => 'jonaspauleta', 'author' => '', 'summary' => '']);

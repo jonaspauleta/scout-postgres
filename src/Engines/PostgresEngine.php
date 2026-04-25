@@ -207,7 +207,7 @@ final class PostgresEngine extends Engine
     {
         $hits = [];
         $total = 0;
-        $first = true;
+        $totalSeen = false;
 
         foreach ($rows as $row) {
             if (! $row instanceof stdClass) {
@@ -219,13 +219,21 @@ final class PostgresEngine extends Engine
                 '_score' => $this->normaliseScore($row->_score ?? null),
             ];
 
-            if ($first) {
+            if (! $totalSeen) {
                 $rawTotal = $row->_total ?? null;
                 if (is_int($rawTotal) || (is_string($rawTotal) && is_numeric($rawTotal))) {
                     $total = (int) $rawTotal;
+                    $totalSeen = true;
                 }
-                $first = false;
             }
+        }
+
+        // When the caller opted out of `COUNT(*) OVER()` via
+        // `->options(['scout_postgres' => ['total_count' => false]])`, the SQL
+        // has no `_total` column. Fall back to the current page size — the
+        // user knowingly traded an accurate total for lower latency.
+        if (! $totalSeen) {
+            $total = count($hits);
         }
 
         return [

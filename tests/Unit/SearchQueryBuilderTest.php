@@ -110,3 +110,27 @@ test('pagination adds LIMIT and OFFSET', function (): void {
     expect($result->sql)->toContain('LIMIT 20')
         ->and($result->sql)->toContain('OFFSET 40');
 });
+
+test('total_count=false omits COUNT(*) OVER from SQL', function (): void {
+    $result = compile('jon', [
+        'options' => [['scout_postgres' => ['total_count' => false]]],
+    ]);
+
+    expect($result->sql)->not->toContain('COUNT(*) OVER()');
+});
+
+test('total_count=true keeps COUNT(*) OVER in SQL', function (): void {
+    $result = compile('jon', [
+        'options' => [['scout_postgres' => ['total_count' => true]]],
+    ]);
+
+    expect($result->sql)->toContain('COUNT(*) OVER()');
+});
+
+test('unrecognised scout_postgres option keys leave totals enabled by default', function (): void {
+    $result = compile('jon', [
+        'options' => [['scout_postgres' => ['unknown_key' => 'value']]],
+    ]);
+
+    expect($result->sql)->toContain('COUNT(*) OVER()');
+});

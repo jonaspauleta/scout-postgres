@@ -75,7 +75,7 @@ All values are environment-overridable. See `config/scout-postgres.php`.
 | `text_search_config`        | `SCOUT_POSTGRES_CONFIG`              | `simple_unaccent`      | Postgres `regconfig` for indexing + querying.                                                                  |
 | `fts_weight`                | `SCOUT_POSTGRES_FTS_WEIGHT`          | `2.0`                  | Multiplier on the `ts_rank` component of the score.                                                            |
 | `trigram_weight`            | `SCOUT_POSTGRES_TRIGRAM_WEIGHT`      | `1.0`                  | Multiplier on the `similarity()` component of the score.                                                       |
-| `trigram_threshold`         | `SCOUT_POSTGRES_TRIGRAM_THRESHOLD`   | `0.15`                 | `SET LOCAL pg_trgm.similarity_threshold` per query. Lower = more recall + more noise.                          |
+| `trigram_threshold`         | `SCOUT_POSTGRES_TRIGRAM_THRESHOLD`   | `0.3`                  | `SET LOCAL pg_trgm.similarity_threshold` per query. Lower = more recall + more noise. Tune **higher** for long-text corpora — see Production notes. |
 | `rank_function`             | `SCOUT_POSTGRES_RANK_FUNCTION`       | `ts_rank`              | `ts_rank` (frequency) or `ts_rank_cd` (cover density).                                                         |
 | `rank_weights`              | —                                    | `[0.1, 0.2, 0.4, 1.0]` | Multipliers for D / C / B / A columns.                                                                         |
 | `rank_normalization`        | `SCOUT_POSTGRES_RANK_NORMALIZATION`  | `32`                   | [Postgres rank normalization bitmask](https://www.postgresql.org/docs/current/textsearch-controls.html).       |
@@ -233,6 +233,41 @@ Neon branches and similar copy-on-write forks do **not** retroactively inherit e
 ### Multi-connection setups
 
 If your searchable models live on a non-default connection, that connection's driver must be `pgsql`. The engine throws `UnsupportedDriverException` otherwise.
+
+### Tuning `trigram_threshold` per corpus
+
+The default `trigram_threshold = 0.3` is tuned for typical mixed-length corpora — titles, authors, short descriptions. **Lower it only when you know your corpus is short text**, otherwise the trigram bitmap explodes the candidate set and recheck cost dominates p95 latency.
+
+A concrete example from the included benchmark (50,000 rows of `title + subtitle + author + multi-paragraph summary`):
+
+| query              | `threshold = 0.15` | `threshold = 0.3` |
+|--------------------|-------------------:|------------------:|
+| `modern history`   |          1264 ms   |          186 ms   |
+| `philosophical exposition` | 1584 ms   |           83 ms   |
+| `phil`             |          1429 ms   |          599 ms   |
+
+Override per model when one model needs different tuning:
+
+```php
+public function scoutPostgresConfig(): array
+{
+    return ['trigram_threshold' => 0.45]; // long-text article body
+}
+```
+
+### Total-count cost — `COUNT(*) OVER()`
+
+By default every search query computes `COUNT(*) OVER()` so `getTotalCount()` reflects the size of the full match set, not just the current page. The trade-off is real: the window aggregate forces Postgres to materialise every matching row before applying `LIMIT`, so latency scales with **match-set size**, not page size.
+
+If you do not need a precise total — for example, "show 20 results, link to next page" — opt out per query:
+
+```php
+Book::search('foo')
+    ->options(['scout_postgres' => ['total_count' => false]])
+    ->paginate(20);
+```
+
+When opted out, `getTotalCount()` returns the size of the current page rather than the full match set; in exchange, latency drops to roughly the cost of fetching the top `N` rows.
 
 ## Limitations
 
