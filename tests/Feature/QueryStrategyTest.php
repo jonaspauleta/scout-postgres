@@ -50,6 +50,27 @@ test('fts_only strategy excludes typo matches that need trigram', function (): v
     expect($results->count())->toBe(0);
 });
 
+test('prefix fast path matches a short single token', function (): void {
+    config()->set('scout-postgres.prefix_fast_path', true);
+
+    Book::factory()->create(['title' => 'Philosophy', 'author' => '', 'summary' => '']);
+
+    $results = Book::search('phil')->get();
+
+    expect($results->count())->toBe(1);
+});
+
+test('disabling prefix_fast_path falls back to adaptive', function (): void {
+    config()->set('scout-postgres.prefix_fast_path', false);
+    config()->set('scout-postgres.query_strategy', 'adaptive');
+
+    Book::factory()->create(['title' => 'Philosophy', 'author' => '', 'summary' => '']);
+
+    $results = Book::search('phil')->get();
+
+    expect($results->count())->toBe(1);
+});
+
 test('adaptive strategy applies user filters across both passes', function (): void {
     config()->set('scout-postgres.query_strategy', 'adaptive');
 

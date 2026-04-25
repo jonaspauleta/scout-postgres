@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`prefix_fast_path` config (default `true`) and `prefix_fast_path_max_length`
+  (default `6`).** Single short tokens (e.g. `phil`, `nurb`) bypass
+  `websearch_to_tsquery` and the trigram pass entirely; the engine runs only
+  `to_tsquery(:prefix:*)`. Cuts the as-you-type latency floor on broad-match
+  queries — the case where the trigram bitmap was previously dominant.
 - **`trigram_function` config (`similarity` / `word_similarity` / `strict_word_similarity`).**
   Default is `word_similarity`. The function controls both the scoring
   expression (`<fn>(search_text, :raw)`) and the WHERE-clause operator (`%`,

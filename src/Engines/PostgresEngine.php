@@ -181,6 +181,17 @@ final class PostgresEngine extends Engine
             $config['trigram_threshold'],
         );
 
+        // Short-prefix fast path: single short token bypasses both
+        // websearch_to_tsquery and the trigram pass entirely.
+        if ($config['prefix_fast_path']
+            && SearchQueryBuilder::isShortPrefixQuery($builder->query, $config['prefix_fast_path_max_length'])) {
+            $compiled = $perPage === null
+                ? SearchQueryBuilder::forSearch($builder, mode: 'prefix_fast_path')
+                : SearchQueryBuilder::forPaginate($builder, $perPage, (int) $page, mode: 'prefix_fast_path');
+
+            return $this->executeCompiled($connection, $compiled, $thresholdSql);
+        }
+
         // "fts_only" and "hybrid" are single-pass — compile once, run once.
         if ($strategy === 'fts_only' || $strategy === 'hybrid') {
             $compiled = $perPage === null

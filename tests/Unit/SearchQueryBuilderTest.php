@@ -194,6 +194,31 @@ test('trigramThresholdVariable maps function name to GUC name', function (): voi
         ->toBe('pg_trgm.strict_word_similarity_threshold');
 });
 
+test('mode=prefix_fast_path drops websearch and trigram from SQL', function (): void {
+    $result = SearchQueryBuilder::forSearch(makeBuilder('phil'), mode: 'prefix_fast_path');
+    if (! $result instanceof SearchQueryBuilder) {
+        throw new RuntimeException('SearchQueryBuilder::forSearch returned null');
+    }
+
+    expect($result->sql)->toContain('to_tsquery(')
+        ->and($result->sql)->not->toContain('websearch_to_tsquery')
+        ->and($result->sql)->not->toContain('search_text')
+        ->and($result->sql)->toContain('search_vector @@ q.pfx')
+        ->and($result->bindings)->toHaveKey('prefix_query')
+        ->and($result->bindings)->not->toHaveKey('query')
+        ->and($result->bindings)->not->toHaveKey('raw');
+});
+
+test('isShortPrefixQuery detects single short tokens', function (): void {
+    expect(SearchQueryBuilder::isShortPrefixQuery('phil', 6))->toBeTrue()
+        ->and(SearchQueryBuilder::isShortPrefixQuery('phil osopher', 6))->toBeFalse()
+        ->and(SearchQueryBuilder::isShortPrefixQuery('philosophical', 6))->toBeFalse()
+        ->and(SearchQueryBuilder::isShortPrefixQuery('philos', 6))->toBeFalse()
+        ->and(SearchQueryBuilder::isShortPrefixQuery('"phil"', 6))->toBeFalse()
+        ->and(SearchQueryBuilder::isShortPrefixQuery("phil'", 6))->toBeFalse()
+        ->and(SearchQueryBuilder::isShortPrefixQuery('', 6))->toBeFalse();
+});
+
 test('mode=fts_only preserves user wheres and pagination', function (): void {
     $result = SearchQueryBuilder::forPaginate(
         makeBuilder('jon', ['where' => ['status', 'active']]),

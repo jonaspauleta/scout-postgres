@@ -19,6 +19,8 @@ use ScoutPostgres\Contracts\PostgresSearchable;
  *   rank_normalization: int,
  *   query_strategy: string,
  *   trigram_function: string,
+ *   prefix_fast_path: bool,
+ *   prefix_fast_path_max_length: int,
  * }
  */
 final readonly class SearchQueryBuilder
@@ -68,7 +70,24 @@ final readonly class SearchQueryBuilder
             'rank_normalization' => self::resolveInt($override, 'rank_normalization', 32),
             'query_strategy' => self::resolveString($override, 'query_strategy', 'adaptive'),
             'trigram_function' => self::resolveString($override, 'trigram_function', 'word_similarity'),
+            'prefix_fast_path' => self::resolveBool($override, 'prefix_fast_path', true),
+            'prefix_fast_path_max_length' => self::resolveInt($override, 'prefix_fast_path_max_length', 6),
         ];
+    }
+
+    /**
+     * Whether the engine should take the short-prefix fast path for this
+     * query — single token, no whitespace, no quotes, length below the
+     * configured `prefix_fast_path_max_length`.
+     */
+    public static function isShortPrefixQuery(string $query, int $maxLength): bool
+    {
+        $trimmed = trim($query);
+        if ($trimmed === '' || mb_strlen($trimmed) >= $maxLength) {
+            return false;
+        }
+
+        return preg_match('/[\s"\']/u', $trimmed) !== 1;
     }
 
     /**
@@ -110,6 +129,10 @@ final readonly class SearchQueryBuilder
         $query = trim($builder->query);
         if ($query === '') {
             return null;
+        }
+
+        if ($mode === 'prefix_fast_path') {
+            return self::buildPrefixFastPath($builder, $query, $limit, $offset);
         }
 
         $ftsOnly = $mode === 'fts_only';
@@ -209,6 +232,61 @@ SELECT "{$model->getKeyName()}" AS id,
     AS _score{$totalCountClause}
 FROM "{$table}", q
 WHERE {$whereClause}{$wheresSql}{$whereInsSql}{$whereNotInsSql}
+{$orderSql}{$limitSql}
+SQL;
+
+        return new self($sql, $bindings);
+    }
+
+    /**
+     * Build the short-prefix fast-path SQL: a single `to_tsquery(:prefix:*)`
+     * with no websearch tokenizer and no trigram fallback.
+     *
+     * @param  Builder<Model>  $builder
+     */
+    private static function buildPrefixFastPath(Builder $builder, string $query, ?int $limit, ?int $offset): ?self
+    {
+        $prefixQuery = QueryEscaper::buildPrefixQuery($query);
+        if ($prefixQuery === '') {
+            return null;
+        }
+
+        $model = $builder->model;
+        $table = $builder->index ?? $model->getTable();
+
+        $bindings = ['prefix_query' => $prefixQuery];
+
+        $wheresSql = self::compileWheres($builder->wheres, $bindings);
+        $whereInsSql = self::compileWhereIns($builder->whereIns, $bindings, negated: false);
+        $whereNotInsSql = self::compileWhereIns($builder->whereNotIns, $bindings, negated: true);
+
+        $orderSql = self::compileOrders($builder->orders, $model);
+
+        $builderLimit = $builder->limit;
+        $limitSql = $limit === null
+            ? (is_int($builderLimit) ? ' LIMIT '.$builderLimit : '')
+            : sprintf(' LIMIT %d OFFSET %d', $limit, (int) $offset);
+
+        $config = self::resolveConfig($model);
+        $rankFn = $config['rank_function'];
+        $rankNorm = $config['rank_normalization'];
+        $ftsWeight = $config['fts_weight'];
+        $tsConfig = $config['text_search_config'];
+        $weightsArray = '{'.implode(',', $config['rank_weights']).'}';
+
+        $totalCountClause = self::wantsTotalCount($builder)
+            ? ",\n  COUNT(*) OVER() AS _total"
+            : '';
+
+        $sql = <<<SQL
+WITH q AS (
+  SELECT to_tsquery('{$tsConfig}', :prefix_query) AS pfx
+)
+SELECT "{$model->getKeyName()}" AS id,
+  {$rankFn}('{$weightsArray}'::real[], search_vector, q.pfx, {$rankNorm}) * {$ftsWeight}
+    AS _score{$totalCountClause}
+FROM "{$table}", q
+WHERE search_vector @@ q.pfx{$wheresSql}{$whereInsSql}{$whereNotInsSql}
 {$orderSql}{$limitSql}
 SQL;
 
@@ -416,6 +494,23 @@ SQL;
         $value = config('scout-postgres.'.$key, $default);
 
         return is_int($value) ? $value : $default;
+    }
+
+    /**
+     * @param  array<string, mixed>  $override
+     */
+    private static function resolveBool(array $override, string $key, bool $default): bool
+    {
+        if (array_key_exists($key, $override)) {
+            $value = $override[$key];
+            if (is_bool($value)) {
+                return $value;
+            }
+        }
+
+        $value = config('scout-postgres.'.$key, $default);
+
+        return is_bool($value) ? $value : $default;
     }
 
     /**

@@ -100,4 +100,22 @@ return [
     |              trigram-bitmap candidate-set cost on every query.
     */
     'query_strategy' => env('SCOUT_POSTGRES_QUERY_STRATEGY', 'adaptive'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Short-Prefix Fast Path
+    |--------------------------------------------------------------------------
+    |
+    | Single short tokens like "phil" or "nurb" produce huge candidate sets
+    | when run through the full hybrid query (broad prefix expansion plus
+    | trigram bitmap). When enabled, queries that are a single token shorter
+    | than `prefix_fast_path_max_length` skip websearch_to_tsquery and the
+    | trigram pass entirely; only `to_tsquery(:prefix:*)` is used.
+    |
+    | Trigram tolerance is intentionally disabled on this path — short
+    | prefixes are unlikely to be typo'd in a way the prefix expansion does
+    | not already cover.
+    */
+    'prefix_fast_path' => filter_var(env('SCOUT_POSTGRES_PREFIX_FAST_PATH', true), FILTER_VALIDATE_BOOLEAN),
+    'prefix_fast_path_max_length' => (int) env('SCOUT_POSTGRES_PREFIX_FAST_PATH_MAX_LENGTH', 6),
 ];

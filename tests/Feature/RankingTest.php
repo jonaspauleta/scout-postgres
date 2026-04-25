@@ -25,6 +25,11 @@ test('title matches rank above summary matches', function (): void {
 });
 
 test('exact match ranks above prefix-only', function (): void {
+    // Trigram-augmented tie-break: only meaningful when the hybrid query
+    // contributes the similarity term. Adaptive and fast-path drop it.
+    config()->set('scout-postgres.query_strategy', 'hybrid');
+    config()->set('scout-postgres.prefix_fast_path', false);
+
     Book::factory()->create(['title' => 'Tulipanomania', 'author' => '', 'summary' => '']);
     $exact = Book::factory()->create(['title' => 'Tulip', 'author' => '', 'summary' => '']);
 
