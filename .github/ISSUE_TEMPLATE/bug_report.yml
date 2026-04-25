@@ -1,0 +1,86 @@
+name: Bug report
+description: Report a reproducible defect in scout-postgres.
+title: "bug: <short summary>"
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug. The fastest path to a fix is a failing Pest test
+        in a gist or repo. Please fill in every field — issues missing reproduction steps usually
+        get closed.
+
+  - type: input
+    id: package-version
+    attributes:
+      label: Package version
+      description: Output of `composer show jonaspauleta/scout-postgres | grep versions`.
+      placeholder: "0.3.0"
+    validations:
+      required: true
+
+  - type: input
+    id: php-version
+    attributes:
+      label: PHP version
+      placeholder: "8.3.12"
+    validations:
+      required: true
+
+  - type: input
+    id: laravel-version
+    attributes:
+      label: Laravel version
+      placeholder: "12.4.0"
+    validations:
+      required: true
+
+  - type: input
+    id: scout-version
+    attributes:
+      label: Laravel Scout version
+      placeholder: "11.0.1"
+    validations:
+      required: true
+
+  - type: input
+    id: postgres-version
+    attributes:
+      label: Postgres version + host
+      description: e.g. "Postgres 16 on Neon", "Postgres 18 self-managed", "Postgres 15 on RDS".
+      placeholder: "Postgres 18 on Laravel Cloud"
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you observe? Include exact error messages, stack traces, query output.
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps
+      description: |
+        Migration definition, model definition, search call, and the data that triggers the bug.
+        A failing Pest test is the gold standard.
+      render: php
+    validations:
+      required: true
+
+  - type: textarea
+    id: extras
+    attributes:
+      label: Anything else?
+      description: Logs, screenshots, related issues.

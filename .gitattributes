@@ -1,20 +1,29 @@
-# Path-based git attributes
+# Path-based git attributes — keep Packagist tarball lean.
 # https://www.kernel.org/pub/software/scm/git/docs/gitattributes.html
 
-# Ignore all test and documentation with "export-ignore".
-/.github            export-ignore
-/.gitattributes     export-ignore
-/.gitignore         export-ignore
-/phpunit.xml.dist   export-ignore
-/art                export-ignore
-/docs               export-ignore
-/tests              export-ignore
-/workbench          export-ignore
-/.editorconfig      export-ignore
-/.php_cs.dist.php   export-ignore
-/psalm.xml          export-ignore
-/psalm.xml.dist     export-ignore
-/testbench.yaml     export-ignore
-/UPGRADING.md       export-ignore
-/phpstan.neon.dist  export-ignore
-/phpstan-baseline.neon  export-ignore
+# Internal agent guides — never ship.
+/CLAUDE.md            export-ignore
+/src/CLAUDE.md        export-ignore
+/src/Query/CLAUDE.md  export-ignore
+/src/Schema/CLAUDE.md export-ignore
+/tests/CLAUDE.md      export-ignore
+
+# Tests, fixtures, benchmarks.
+/tests                export-ignore
+/benchmarks           export-ignore
+
+# CI + repo hygiene.
+/.github              export-ignore
+/.gitattributes       export-ignore
+/.gitignore           export-ignore
+/.editorconfig        export-ignore
+
+# Tooling configs.
+/phpunit.xml          export-ignore
+/phpstan.neon         export-ignore
+/pint.json            export-ignore
+/rector.php           export-ignore
+
+# Build / lock artifacts.
+/build                export-ignore
+/composer.lock        export-ignore

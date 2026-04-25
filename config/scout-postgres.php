@@ -58,14 +58,4 @@ return [
     | See Postgres docs: https://www.postgresql.org/docs/current/textsearch-controls.html
     */
     'rank_normalization' => (int) env('SCOUT_POSTGRES_RANK_NORMALIZATION', 32),
-
-    /*
-    |--------------------------------------------------------------------------
-    | Sync
-    |--------------------------------------------------------------------------
-    |
-    | Whether Scout's model observer should dispatch index jobs. Default false
-    | because the generated columns compute on write — no sync is required.
-    */
-    'sync' => (bool) env('SCOUT_POSTGRES_SYNC', false),
 ];

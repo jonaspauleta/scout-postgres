@@ -1,0 +1,46 @@
+name: Feature request
+description: Suggest a new capability or improvement.
+title: "feat: <short summary>"
+labels: ["enhancement", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before opening a feature request, please check the README **Limitations** section and the
+        existing issues / discussions. Some features (synonym tuning, multi-language switching,
+        federated multi-table search) are explicit non-goals and will not be merged.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What are you trying to do that the package does not support today?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed API
+      description: |
+        If you have an idea of the public surface, sketch it here. Migration / model / query
+        snippets are very helpful.
+      render: php
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Workarounds you tried, other Scout drivers, raw SQL, etc.
+
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope check
+      options:
+        - label: I have read the README "Limitations" section and this is not in the explicit non-goals list.
+          required: true
+        - label: I am willing to open a PR with a Pest test if the maintainer agrees on the design.
+          required: false

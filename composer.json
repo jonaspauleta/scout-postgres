@@ -1,27 +1,48 @@
 {
     "name": "jonaspauleta/scout-postgres",
     "description": "Native Postgres full-text search + pg_trgm engine for Laravel Scout.",
-    "keywords": ["laravel", "scout", "postgres", "full-text-search", "pg_trgm"],
+    "keywords": [
+        "laravel",
+        "laravel-scout",
+        "scout",
+        "scout-driver",
+        "scout-engine",
+        "postgres",
+        "postgresql",
+        "search",
+        "full-text-search",
+        "fts",
+        "pg_trgm",
+        "trigram",
+        "fuzzy-search",
+        "neon",
+        "laravel-cloud"
+    ],
     "homepage": "https://github.com/jonaspauleta/scout-postgres",
+    "support": {
+        "issues": "https://github.com/jonaspauleta/scout-postgres/issues",
+        "source": "https://github.com/jonaspauleta/scout-postgres",
+        "docs": "https://github.com/jonaspauleta/scout-postgres#readme"
+    },
     "license": "MIT",
     "authors": [
-        { "name": "João Paulo Santos", "email": "jonaspauleta2@gmail.com", "role": "Developer" }
+        { "name": "João Paulo Santos", "email": "jpaulo4799santos@gmail.com", "role": "Developer" }
     ],
     "require": {
-        "php": "^8.5",
-        "illuminate/contracts": "^13.0",
-        "illuminate/database": "^13.0",
-        "illuminate/support": "^13.0",
-        "laravel/scout": "^11.0",
+        "php": "^8.3",
+        "illuminate/contracts": "^11.0 || ^12.0 || ^13.0",
+        "illuminate/database": "^11.0 || ^12.0 || ^13.0",
+        "illuminate/support": "^11.0 || ^12.0 || ^13.0",
+        "laravel/scout": "^10.0 || ^11.0",
         "spatie/laravel-package-tools": "^1.16"
     },
     "require-dev": {
         "driftingly/rector-laravel": "^2.2",
         "larastan/larastan": "^3.0",
         "laravel/pint": "^1.25",
-        "orchestra/testbench": "^11.0",
-        "pestphp/pest": "^5.0",
-        "pestphp/pest-plugin-laravel": "^5.0",
+        "orchestra/testbench": "^9.0 || ^10.0 || ^11.0",
+        "pestphp/pest": "^3.0 || ^4.0 || ^5.0",
+        "pestphp/pest-plugin-laravel": "^3.0 || ^4.0 || ^5.0",
         "phpstan/phpstan-deprecation-rules": "^2.0",
         "phpstan/phpstan-phpunit": "^2.0",
         "rector/rector": "^2.2"
