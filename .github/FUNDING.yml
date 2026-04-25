@@ -1,0 +1,17 @@
+# https://docs.github.com/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/displaying-a-sponsor-button-in-your-repository
+
+github: [jonaspauleta]
+
+# Other supported providers — uncomment and fill in if you ever enable them.
+# patreon: # username
+# open_collective: # slug
+# ko_fi: # username
+# tidelift: # platform-name/package-name (e.g. packagist/jonaspauleta/scout-postgres)
+# community_bridge: # project name
+# liberapay: # username
+# issuehunt: # username
+# lfx_crowdfunding: # project slug
+# polar: # username
+# buy_me_a_coffee: # username
+# thanks_dev: # username
+# custom: # ['https://your.site/sponsor']
