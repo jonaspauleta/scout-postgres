@@ -72,7 +72,7 @@ final readonly class SearchQueryBuilder
      */
     private static function build(Builder $builder, ?int $limit, ?int $offset): ?self
     {
-        $query = mb_trim($builder->query);
+        $query = trim($builder->query);
         if ($query === '') {
             return null;
         }

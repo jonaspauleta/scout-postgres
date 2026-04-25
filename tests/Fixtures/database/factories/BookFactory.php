@@ -6,14 +6,12 @@ namespace ApexScout\ScoutPostgres\Tests\Fixtures\database\factories;
 
 use ApexScout\ScoutPostgres\Tests\Fixtures\Models\Book;
 use Illuminate\Database\Eloquent\Factories\Factory;
-use Override;
 
 /**
  * @extends Factory<Book>
  */
 final class BookFactory extends Factory
 {
-    #[Override]
     protected $model = Book::class;
 
     public function definition(): array

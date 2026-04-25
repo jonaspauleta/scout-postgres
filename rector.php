@@ -14,6 +14,7 @@ return RectorConfig::configure()
     ->withSkip([
         __DIR__.'/vendor',
         __DIR__.'/build',
+        __DIR__.'/tests/Fixtures',
     ])
     ->withPhpSets(php85: true)
     ->withPreparedSets(

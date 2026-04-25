@@ -15,7 +15,7 @@ final class QueryEscaper
     {
         $cleaned = str_replace(self::TSQUERY_SPECIALS, '', $input);
 
-        return mb_trim(preg_replace('/\s+/', ' ', $cleaned) ?? '');
+        return trim(preg_replace('/\s+/', ' ', $cleaned) ?? '');
     }
 
     public static function buildPrefixQuery(string $input): string
@@ -44,6 +44,6 @@ final class QueryEscaper
         $ascii = preg_replace('/\p{Mn}+/u', '', $normalised) ?? $normalised;
         $collapsed = preg_replace('/\s+/', ' ', $ascii) ?? $ascii;
 
-        return mb_strtolower(mb_trim($collapsed));
+        return mb_strtolower(trim($collapsed));
     }
 }

@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-04-25
+
+### Fixed
+
+- **Runtime failure on PHP 8.3.** `Query/QueryEscaper` and `Query/SearchQueryBuilder` used `mb_trim()`, which is PHP 8.4+. The package declared `php ^8.3` in `composer.json` but would fatal at runtime on 8.3. Replaced with `trim()` — the call sites already collapse multi-byte whitespace via `preg_replace('/\s+/', ' ', …)` so plain `trim()` is sufficient.
+- **PHPStan failures on Laravel 11 + PHP 8.3/8.4.** Test fixtures used `#[Hidden]` / `#[Table]` (Laravel 12+) and `#[Override]` on properties (PHP 8.5+). Reverted to `protected $hidden` / `protected $table` and dropped the `#[Override]` attributes so the fixtures compile and analyse cleanly across the full support matrix.
+
+### Changed
+
+- Rector now skips `tests/Fixtures` so the `LARAVEL_CODE_QUALITY` set does not re-introduce Laravel 12+ attributes into the fixtures.
+
 ## [0.4.0] - 2026-04-25
 
 ### Added
@@ -64,7 +75,8 @@ If your `composer.json` declared a VCS repo for this package, remove that block 
 
 - Initial release: Postgres 18 full-text search + `pg_trgm` engine for Laravel Scout.
 
-[Unreleased]: https://github.com/jonaspauleta/scout-postgres/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/jonaspauleta/scout-postgres/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/jonaspauleta/scout-postgres/releases/tag/v0.4.1
 [0.4.0]: https://github.com/jonaspauleta/scout-postgres/releases/tag/v0.4.0
 [0.3.0]: https://github.com/jonaspauleta/scout-postgres/releases/tag/v0.3.0
 [0.2.0]: https://github.com/jonaspauleta/scout-postgres/releases/tag/v0.2.0

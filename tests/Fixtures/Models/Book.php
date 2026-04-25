@@ -5,13 +5,10 @@ declare(strict_types=1);
 namespace ApexScout\ScoutPostgres\Tests\Fixtures\Models;
 
 use ApexScout\ScoutPostgres\Tests\Fixtures\database\factories\BookFactory;
-use Illuminate\Database\Eloquent\Attributes\Hidden;
-use Illuminate\Database\Eloquent\Attributes\Table;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Laravel\Scout\Searchable;
-use Override;
 
 /**
  * @property int $id
@@ -21,8 +18,6 @@ use Override;
  *
  * @method static BookFactory factory($count = null, $state = [])
  */
-#[Hidden(['search_vector', 'search_text'])]
-#[Table(name: 'books')]
 final class Book extends Model
 {
     /** @use HasFactory<BookFactory> */
@@ -31,7 +26,12 @@ final class Book extends Model
     use Searchable;
     use SoftDeletes;
 
-    #[Override]
+    protected $table = 'books';
+
+    /** @var list<string> */
+    protected $hidden = ['search_vector', 'search_text'];
+
+    /** @var list<string> */
     protected $guarded = [];
 
     protected static function newFactory(): BookFactory
