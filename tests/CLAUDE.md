@@ -2,7 +2,7 @@
 
 ## Boot
 
-Tests extend `ApexScout\ScoutPostgres\Tests\TestCase`, which wires up
+Tests extend `ScoutPostgres\Tests\TestCase`, which wires up
 Orchestra Testbench + the `pgsql` connection defined by env vars.
 SQLite is **not** supported — the feature set (tsvector, gin_trgm_ops,
 STORED generated columns) requires a real Postgres 18.

@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace ApexScout\ScoutPostgres\Query;
+namespace ScoutPostgres\Query;
 
-use ApexScout\ScoutPostgres\Contracts\PostgresSearchable;
 use Illuminate\Database\Eloquent\Model;
 use Laravel\Scout\Builder;
+use ScoutPostgres\Contracts\PostgresSearchable;
 
 /**
  * @phpstan-type ScoutPostgresConfig array{

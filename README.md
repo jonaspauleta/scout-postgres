@@ -170,7 +170,7 @@ The engine respects Scout's `__soft_deleted` filter and translates it into `dele
 Implement `PostgresSearchable` to override config on a single model — useful when one model needs stricter fuzzy matching, a different rank function, or its own text search config:
 
 ```php
-use ApexScout\ScoutPostgres\Contracts\PostgresSearchable;
+use ScoutPostgres\Contracts\PostgresSearchable;
 use Illuminate\Database\Eloquent\Model;
 use Laravel\Scout\Searchable;
 

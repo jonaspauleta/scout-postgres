@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace ApexScout\ScoutPostgres\Schema;
+namespace ScoutPostgres\Schema;
 
 use Illuminate\Database\Schema\Blueprint as LaravelBlueprint;
 use Illuminate\Support\Facades\DB;

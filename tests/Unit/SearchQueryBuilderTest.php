@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace ApexScout\ScoutPostgres\Tests\Unit;
+namespace ScoutPostgres\Tests\Unit;
 
-use ApexScout\ScoutPostgres\Query\SearchQueryBuilder;
-use ApexScout\ScoutPostgres\Tests\Fixtures\Models\Book;
 use Illuminate\Database\Eloquent\Model;
 use Laravel\Scout\Builder;
 use RuntimeException;
+use ScoutPostgres\Query\SearchQueryBuilder;
+use ScoutPostgres\Tests\Fixtures\Models\Book;
 
 /**
  * @param  array<string, array<int, mixed>>  $options

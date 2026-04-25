@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-use ApexScout\ScoutPostgres\Exceptions\MissingPostgresExtensionException;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
+use ScoutPostgres\Exceptions\MissingPostgresExtensionException;
 
 return new class extends Migration
 {

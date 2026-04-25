@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace ApexScout\ScoutPostgres\Tests\Feature;
+namespace ScoutPostgres\Tests\Feature;
 
-use ApexScout\ScoutPostgres\Tests\Fixtures\Models\Book;
+use ScoutPostgres\Tests\Fixtures\Models\Book;
 
 test('paginate returns a LengthAwarePaginator with correct total', function (): void {
     for ($i = 0; $i < 25; $i++) {

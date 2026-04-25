@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace ApexScout\ScoutPostgres\Tests\Feature;
+namespace ScoutPostgres\Tests\Feature;
 
 use Illuminate\Support\Facades\DB;
 

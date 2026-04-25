@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace ApexScout\ScoutPostgres\Tests\Unit;
+namespace ScoutPostgres\Tests\Unit;
 
-use ApexScout\ScoutPostgres\Query\QueryEscaper;
+use ScoutPostgres\Query\QueryEscaper;
 
 test('escapes tsquery special characters', function (string $input, string $expected): void {
     expect(QueryEscaper::escapeForTsquery($input))->toBe($expected);

@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Root PHP namespace renamed: `ApexScout\ScoutPostgres\` → `ScoutPostgres\`.**
+  The `ApexScout` prefix originated from a sister SaaS project and never
+  belonged on a standalone OSS package. The legacy namespace is preserved as
+  `class_alias` shims (see `src/aliases.php`) so existing `use ApexScout\ScoutPostgres\…`
+  imports keep working unchanged for the entire `1.x` line. **Migrate your
+  imports to `ScoutPostgres\…` before `2.0`** — the legacy namespace will be
+  dropped there.
+
 ## [1.0.0] - 2026-04-25
 
 ### Added

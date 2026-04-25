@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace ApexScout\ScoutPostgres\Contracts;
+namespace ScoutPostgres\Contracts;
 
 /**
  * Implement on Eloquent models to override engine defaults per-model.

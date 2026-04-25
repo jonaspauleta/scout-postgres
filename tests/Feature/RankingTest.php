@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace ApexScout\ScoutPostgres\Tests\Feature;
+namespace ScoutPostgres\Tests\Feature;
 
-use ApexScout\ScoutPostgres\Tests\Fixtures\Models\Book;
+use ScoutPostgres\Tests\Fixtures\Models\Book;
 
 test('title matches rank above summary matches', function (): void {
     $summaryMatch = Book::factory()->create([

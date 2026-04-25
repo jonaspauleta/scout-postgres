@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace ApexScout\ScoutPostgres\Tests\Feature;
+namespace ScoutPostgres\Tests\Feature;
 
-use ApexScout\ScoutPostgres\Tests\Fixtures\Models\Book;
+use ScoutPostgres\Tests\Fixtures\Models\Book;
 
 test('single-character typo is recovered via trigram', function (): void {
     Book::factory()->create(['title' => 'jonaspauleta', 'author' => '', 'summary' => '']);

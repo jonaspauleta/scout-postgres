@@ -49,13 +49,16 @@
     },
     "autoload": {
         "psr-4": {
-            "ApexScout\\ScoutPostgres\\": "src/",
-            "ApexScout\\ScoutPostgres\\Database\\Factories\\": "database/factories/"
-        }
+            "ScoutPostgres\\": "src/",
+            "ScoutPostgres\\Database\\Factories\\": "database/factories/"
+        },
+        "files": [
+            "src/aliases.php"
+        ]
     },
     "autoload-dev": {
         "psr-4": {
-            "ApexScout\\ScoutPostgres\\Tests\\": "tests/"
+            "ScoutPostgres\\Tests\\": "tests/"
         }
     },
     "scripts": {
@@ -76,7 +79,7 @@
     },
     "extra": {
         "laravel": {
-            "providers": ["ApexScout\\ScoutPostgres\\ScoutPostgresServiceProvider"]
+            "providers": ["ScoutPostgres\\ScoutPostgresServiceProvider"]
         }
     },
     "minimum-stability": "dev",

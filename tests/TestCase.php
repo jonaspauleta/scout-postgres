@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace ApexScout\ScoutPostgres\Tests;
+namespace ScoutPostgres\Tests;
 
-use ApexScout\ScoutPostgres\ScoutPostgresServiceProvider;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Scout\ScoutServiceProvider;
 use Orchestra\Testbench\TestCase as Orchestra;
+use ScoutPostgres\ScoutPostgresServiceProvider;
 
 abstract class TestCase extends Orchestra
 {

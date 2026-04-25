@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace ApexScout\ScoutPostgres\Exceptions;
+namespace ScoutPostgres\Exceptions;
 
 use RuntimeException;
 

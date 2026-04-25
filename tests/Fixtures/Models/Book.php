@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace ApexScout\ScoutPostgres\Tests\Fixtures\Models;
+namespace ScoutPostgres\Tests\Fixtures\Models;
 
-use ApexScout\ScoutPostgres\Tests\Fixtures\database\factories\BookFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Laravel\Scout\Searchable;
+use ScoutPostgres\Tests\Fixtures\database\factories\BookFactory;
 
 /**
  * @property int $id

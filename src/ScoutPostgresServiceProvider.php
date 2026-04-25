@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace ApexScout\ScoutPostgres;
+namespace ScoutPostgres;
 
-use ApexScout\ScoutPostgres\Engines\PostgresEngine;
-use ApexScout\ScoutPostgres\Schema\Blueprint as BlueprintMacros;
 use Laravel\Scout\EngineManager;
+use ScoutPostgres\Engines\PostgresEngine;
+use ScoutPostgres\Schema\Blueprint as BlueprintMacros;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
 

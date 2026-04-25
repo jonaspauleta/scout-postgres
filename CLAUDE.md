@@ -2,8 +2,9 @@
 
 Native Postgres 18 FTS + pg_trgm engine for Laravel Scout. Standalone
 package — published as `jonaspauleta/scout-postgres` on Packagist.
-Namespace stays `ApexScout\ScoutPostgres\` for brand continuity with the
-ApexScout SaaS.
+Root PHP namespace is `ScoutPostgres\`. The legacy `ApexScout\ScoutPostgres\`
+namespace is preserved as `class_alias` shims for backwards compatibility
+across the 1.x line — see `src/aliases.php`.
 
 ## Installation
 

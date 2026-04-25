@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace ApexScout\ScoutPostgres\Tests\Unit;
+namespace ScoutPostgres\Tests\Unit;
 
-use ApexScout\ScoutPostgres\Engines\PostgresEngine;
-use ApexScout\ScoutPostgres\Exceptions\UnsupportedDriverException;
-use ApexScout\ScoutPostgres\Tests\Fixtures\Models\Book;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Model;
 use Laravel\Scout\Builder;
+use ScoutPostgres\Engines\PostgresEngine;
+use ScoutPostgres\Exceptions\UnsupportedDriverException;
+use ScoutPostgres\Tests\Fixtures\Models\Book;
 
 test('write methods are no-ops', function (): void {
     /** @var PostgresEngine $engine */

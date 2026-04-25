@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace ApexScout\ScoutPostgres\Tests\Fixtures\database\factories;
+namespace ScoutPostgres\Tests\Fixtures\database\factories;
 
-use ApexScout\ScoutPostgres\Tests\Fixtures\Models\Book;
 use Illuminate\Database\Eloquent\Factories\Factory;
+use ScoutPostgres\Tests\Fixtures\Models\Book;
 
 /**
  * @extends Factory<Book>

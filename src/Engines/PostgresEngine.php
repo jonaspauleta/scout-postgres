@@ -2,11 +2,8 @@
 
 declare(strict_types=1);
 
-namespace ApexScout\ScoutPostgres\Engines;
+namespace ScoutPostgres\Engines;
 
-use ApexScout\ScoutPostgres\Exceptions\ModelNotSearchableException;
-use ApexScout\ScoutPostgres\Exceptions\UnsupportedDriverException;
-use ApexScout\ScoutPostgres\Query\SearchQueryBuilder;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
@@ -16,6 +13,9 @@ use Illuminate\Support\LazyCollection;
 use Laravel\Scout\Builder;
 use Laravel\Scout\Engines\Engine;
 use Laravel\Scout\Searchable;
+use ScoutPostgres\Exceptions\ModelNotSearchableException;
+use ScoutPostgres\Exceptions\UnsupportedDriverException;
+use ScoutPostgres\Query\SearchQueryBuilder;
 use stdClass;
 
 /**
