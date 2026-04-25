@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-04-25
+
+### Removed
+
+- **Legacy `ApexScout\ScoutPostgres\` namespace shims.** The `class_alias()`
+  bridge introduced when the package was renamed in 1.0 has been removed
+  along with `src/aliases.php` and its `composer.json` `files` autoload
+  entry. Replace any remaining imports:
+  ```diff
+  -use ApexScout\ScoutPostgres\Contracts\PostgresSearchable;
+  +use ScoutPostgres\Contracts\PostgresSearchable;
+  ```
+
 ### Added
 
 - **`postgresSearchable()` macro now caps `search_text` length** at 1000
@@ -71,11 +84,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Root PHP namespace renamed: `ApexScout\ScoutPostgres\` → `ScoutPostgres\`.**
   The `ApexScout` prefix originated from a sister SaaS project and never
-  belonged on a standalone OSS package. The legacy namespace is preserved as
-  `class_alias` shims (see `src/aliases.php`) so existing `use ApexScout\ScoutPostgres\…`
-  imports keep working unchanged for the entire `1.x` line. **Migrate your
-  imports to `ScoutPostgres\…` before `2.0`** — the legacy namespace will be
-  dropped there.
+  belonged on a standalone OSS package. The legacy namespace was kept as
+  `class_alias` shims through pre-release builds and **removed** in 1.1.0
+  (see Removed section). Replace remaining `use ApexScout\ScoutPostgres\…`
+  imports with `use ScoutPostgres\…`.
 
 ### Performance
 
@@ -207,7 +219,8 @@ If your `composer.json` declared a VCS repo for this package, remove that block 
 
 - Initial release: Postgres 18 full-text search + `pg_trgm` engine for Laravel Scout.
 
-[Unreleased]: https://github.com/jonaspauleta/scout-postgres/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/jonaspauleta/scout-postgres/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/jonaspauleta/scout-postgres/releases/tag/v1.1.0
 [1.0.0]: https://github.com/jonaspauleta/scout-postgres/releases/tag/v1.0.0
 [0.4.1]: https://github.com/jonaspauleta/scout-postgres/releases/tag/v0.4.1
 [0.4.0]: https://github.com/jonaspauleta/scout-postgres/releases/tag/v0.4.0

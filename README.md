@@ -394,7 +394,7 @@ million-row corpora.
 
 The package is **stable** as of `v1.0.0`. The public API — the `postgresSearchable()` migration macro, the `dropPostgresSearchable()` macro, the `PostgresSearchable` contract, the `pgsql` Scout engine driver name, and the keys in `config/scout-postgres.php` — is committed across the entire `1.x` line. Breaking changes will land on a `2.0.0` release tag and will be documented in `CHANGELOG.md` with a migration note.
 
-The legacy PHP namespace `ApexScout\ScoutPostgres\` is preserved as `class_alias` shims through `1.x` and will be removed in `2.0`.
+The legacy `ApexScout\ScoutPostgres\` namespace was dropped in `1.1.0` — migrate any remaining imports to `ScoutPostgres\…`.
 
 ## Limitations
 
@@ -440,9 +440,13 @@ ranking or pagination semantics.
 Existing `search_text` columns are unaffected by the cap — only new
 migrations applying `postgresSearchable()` pick up the `LEFT(...)` wrapper.
 
-The legacy `ApexScout\ScoutPostgres\` namespace is preserved as
-`class_alias` shims through `1.x` and will be removed in `2.0`. Update
-imports to `ScoutPostgres\…` ahead of `2.0`.
+The legacy `ApexScout\ScoutPostgres\` namespace was removed in `1.1.0`.
+Replace any remaining imports:
+
+```diff
+-use ApexScout\ScoutPostgres\Contracts\PostgresSearchable;
++use ScoutPostgres\Contracts\PostgresSearchable;
+```
 
 ## Testing
 

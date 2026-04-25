@@ -51,10 +51,7 @@
         "psr-4": {
             "ScoutPostgres\\": "src/",
             "ScoutPostgres\\Database\\Factories\\": "database/factories/"
-        },
-        "files": [
-            "src/aliases.php"
-        ]
+        }
     },
     "autoload-dev": {
         "psr-4": {
