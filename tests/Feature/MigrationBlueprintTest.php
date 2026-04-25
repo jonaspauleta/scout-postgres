@@ -7,6 +7,28 @@ namespace ScoutPostgres\Tests\Feature;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
+function generationExpressionFor(string $column): string
+{
+    $rows = DB::select(
+        "SELECT generation_expression FROM information_schema.columns
+         WHERE table_name = 'books' AND column_name = ?",
+        [$column],
+    );
+
+    if ($rows === []) {
+        return '';
+    }
+
+    $row = $rows[0];
+    if (! is_object($row) || ! property_exists($row, 'generation_expression')) {
+        return '';
+    }
+
+    $value = $row->generation_expression;
+
+    return is_string($value) ? $value : '';
+}
+
 test('postgresSearchable adds search_vector and search_text generated columns', function (): void {
     expect(Schema::hasColumn('books', 'search_vector'))->toBeTrue()
         ->and(Schema::hasColumn('books', 'search_text'))->toBeTrue();
@@ -38,4 +60,18 @@ test('GIN indexes exist for both search columns', function (): void {
 
     expect($indexes)->toContain('books_search_vector_gin')
         ->and($indexes)->toContain('books_search_text_trgm');
+});
+
+test('search_text generated column applies the default LEFT cap', function (): void {
+    $expr = generationExpressionFor('search_text');
+
+    expect($expr)->toContain('"left"(')
+        ->and($expr)->toContain('1000');
+});
+
+test('search_vector generated column is NOT capped', function (): void {
+    $expr = generationExpressionFor('search_vector');
+
+    expect($expr)->not->toContain('"left"(')
+        ->and($expr)->toContain('to_tsvector');
 });

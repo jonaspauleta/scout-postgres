@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`postgresSearchable()` macro now caps `search_text` length** at 1000
+  characters by default via a `LEFT(...)` wrapper inside the STORED
+  generation expression. Trigram-bitmap cost grows linearly with text
+  length, so capping the concatenated text removes the long-tail latency
+  contribution from multi-paragraph `summary` columns. Pass a custom cap or
+  `0` (no cap) as the third macro argument:
+  `$table->postgresSearchable($weights, null, $maxLength: 2000)`.
+  Existing tables are unaffected — the cap only applies on new migrations.
+  The `search_vector` column is never capped because `to_tsvector` already
+  deduplicates lexemes.
 - **`disable_jit` config (default `true`).** Each search transaction issues
   `SET LOCAL jit = off` so the JIT compile cost (10–30 ms on cold queries)
   cannot dominate the wall time of FTS queries that themselves complete in

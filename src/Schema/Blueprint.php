@@ -12,9 +12,9 @@ final class Blueprint
 {
     public static function register(): void
     {
-        LaravelBlueprint::macro('postgresSearchable', function (array $weights, ?string $config = null): void {
+        LaravelBlueprint::macro('postgresSearchable', function (array $weights, ?string $config = null, int $maxLength = 1000): void {
             /** @var LaravelBlueprint $this */
-            Blueprint::apply($this, $weights, $config);
+            Blueprint::apply($this, $weights, $config, $maxLength);
         });
 
         LaravelBlueprint::macro('dropPostgresSearchable', function (): void {
@@ -25,8 +25,11 @@ final class Blueprint
 
     /**
      * @param  array<int|string, mixed>  $weights
+     * @param  int  $maxLength  Cap on `search_text` byte length. `0` disables the cap.
+     *                          The `search_vector` column is never capped — `to_tsvector`
+     *                          deduplicates lexemes so its length is naturally bounded.
      */
-    public static function apply(LaravelBlueprint $blueprint, array $weights, ?string $config): void
+    public static function apply(LaravelBlueprint $blueprint, array $weights, ?string $config, int $maxLength = 1000): void
     {
         $normalised = self::validateWeights($weights);
 
@@ -37,7 +40,7 @@ final class Blueprint
 
         $table = $blueprint->getTable();
         $vectorExpr = self::buildVectorExpression($normalised, $config);
-        $textExpr = self::buildTextExpression(array_keys($normalised));
+        $textExpr = self::buildTextExpression(array_keys($normalised), $maxLength);
 
         DB::statement(sprintf(
             'ALTER TABLE %s ADD COLUMN search_vector tsvector GENERATED ALWAYS AS (%s) STORED',
@@ -125,8 +128,9 @@ final class Blueprint
 
     /**
      * @param  list<string>  $columns
+     * @param  int  $maxLength  Cap on the final concatenated text. `0` disables the cap.
      */
-    private static function buildTextExpression(array $columns): string
+    private static function buildTextExpression(array $columns, int $maxLength): string
     {
         // Use `coalesce` + `||` instead of `concat_ws` because STORED generated
         // columns require an IMMUTABLE expression; `concat_ws` is only STABLE.
@@ -135,7 +139,11 @@ final class Blueprint
             $columns,
         );
 
-        return implode(" || ' ' || ", $parts);
+        $expr = implode(" || ' ' || ", $parts);
+
+        return $maxLength > 0
+            ? sprintf('LEFT(%s, %d)', $expr, $maxLength)
+            : $expr;
     }
 
     private static function quote(string $identifier): string
