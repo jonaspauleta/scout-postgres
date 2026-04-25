@@ -36,13 +36,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `to_tsquery(:prefix:*)`. Cuts the as-you-type latency floor on broad-match
   queries — the case where the trigram bitmap was previously dominant.
 - **`trigram_function` config (`similarity` / `word_similarity` / `strict_word_similarity`).**
-  Default is `word_similarity`. The function controls both the scoring
-  expression (`<fn>(search_text, :raw)`) and the WHERE-clause operator (`%`,
-  `<%`, `<<%`); the per-query `SET LOCAL` threshold variable name is derived
-  to match. `word_similarity` is materially cheaper than the legacy
-  `similarity` on long-text columns (multi-paragraph summaries) because it
-  only considers words near the query rather than overlapping the whole
-  string. Override per model via `scoutPostgresConfig()`.
+  Default is `similarity` (the pre-1.0 behaviour). The function controls
+  both the scoring expression (`<fn>(search_text, :raw)`) and the
+  WHERE-clause operator (`%`, `<%`, `<<%`); the per-query `SET LOCAL`
+  threshold variable name is derived to match. Switch to `word_similarity`
+  or `strict_word_similarity` only after measuring on your corpus —
+  benchmarks on the bundled long-text corpus showed `<%` produced larger
+  candidate bitmaps at the same numerical threshold and was net slower than
+  `%` on no-match queries.
 - **`query_strategy` config (`adaptive` / `hybrid` / `fts_only`).** Default is
   `adaptive`: the engine first runs an FTS-only query and only falls back to
   the hybrid FTS + trigram query when FTS recall is insufficient. The fallback
@@ -61,11 +62,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   relying on `LengthAwarePaginator::total()` showing the full match set must
   set `SCOUT_POSTGRES_TOTAL_COUNT=true` to restore the old behaviour, or
   pass `->options(['scout_postgres' => ['total_count' => true]])` per-query.
-- **Default `trigram_function` is now `word_similarity`** (was effectively
-  `similarity` in 1.0.0). On long-text corpora the new default cuts the
-  trigram cost without measurable recall loss; on short titles the two are
-  near-identical. Set `SCOUT_POSTGRES_TRIGRAM_FUNCTION=similarity` to restore
-  the previous behaviour.
 - **Default search behaviour now runs FTS first, trigram on fallback.** The
   previous default (`hybrid`) ran both signals in a single pass on every
   query, paying the trigram cost even when FTS already had enough recall.

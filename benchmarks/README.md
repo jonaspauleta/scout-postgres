@@ -52,7 +52,31 @@ php artisan bench:scout --seed=50000 --runs=30 --warmup=3
 
 Run on Postgres 18.3, PHP 8.5, Laravel 13, 50,150 rows, hot cache.
 
-### Default `trigram_threshold` (0.3, the new 1.0 default)
+### Current defaults (adaptive strategy, prefix fast path, JIT off, total_count off)
+
+Run with the post-1.0 default config: `query_strategy=adaptive`,
+`prefix_fast_path=true`, `disable_jit=true`, `total_count=false`,
+`trigram_function=similarity`, `trigram_threshold=0.3`. Schema migrated with
+the new `search_text` cap (1000 chars).
+
+| query              | `pgsql` p50 (ms) | `database` p50 (ms) | hits (pg / db) | notes                                                |
+|--------------------|-----------------:|--------------------:|:---------------|:-----------------------------------------------------|
+| `world`            |              4.0 |                 2.3 | 20 / 20        | adaptive returns FTS-only on common token            |
+| `modern history`   |              4.9 |               190.5 | **20 / 0**     | FTS bridges token gaps; `database` cannot            |
+| `philosophical exposition` | 4.6      |                 2.8 | 20 / 20        | `total_count=false` removes the window-aggregate     |
+| `phil`             |              4.0 |                 2.7 | 20 / 20        | short-prefix fast path skips trigram entirely        |
+| `philosphy`        |             13.1 |               186.3 | 0 / 0          | adaptive fallback to hybrid recovers via trigram     |
+| `qwxzqwxzqwxz`     |              7.9 |               191.5 | 0 / 0          | adaptive fallback runs but trigram bitmap is empty   |
+| `a comprehensive history of modern philosophical thought` | 7.1 | 2.9 | 20 / 20 | FTS handles long queries                            |
+
+Compared with the 1.0.0 numbers (next section): `phil` drops from 599 ms to
+4 ms thanks to the short-prefix fast path; `philosophical exposition` drops
+from 83 ms to ~5 ms thanks to dropping `COUNT(*) OVER()`; `modern history`
+drops from 186 ms to 5 ms thanks to adaptive returning the FTS hits without
+running the trigram pass. Typo and no-match queries pay a small fallback
+cost (a couple of milliseconds) versus the 1.0.0 single-pass hybrid.
+
+### 1.0.0 results (`trigram_threshold = 0.3`, no adaptive)
 
 | query              | `pgsql` p50 (ms) | `database` p50 (ms) | hits (pg / db) | notes                                     |
 |--------------------|-----------------:|--------------------:|:---------------|:------------------------------------------|
@@ -83,16 +107,21 @@ The 0.15 default is preserved here as evidence for the threshold change in 1.0.0
 1. **`scout-postgres` has measurably better recall.** Multi-token queries,
    prefix matches, and accent variants all return matches that the
    `database` driver's `LIKE %term%` strategy misses entirely.
-2. **The `trigram_threshold` setting is the dominant cost knob.** A 2× change
-   in threshold can change p50 by 10–100×. The new 1.0 default (`0.3`) is
-   chosen to be safe for typical mixed-length corpora; tune **higher** for
-   long-text corpora, **lower** only for short titles where false negatives
-   are the bigger concern.
-3. **`COUNT(*) OVER()` is the second-biggest cost.** It forces materialisation
-   of the full match set before `LIMIT`, so latency scales with match-set
-   size rather than page size. Per-query opt-out is now available — see
-   `Production notes` in the package README.
-4. **The `database` driver wins on small literal-substring queries** because
+2. **The adaptive strategy + short-prefix fast path are the dominant wins.**
+   `phil` drops from 599 ms (1.0.0) to 4 ms (current) because the fast path
+   skips both `websearch_to_tsquery` and the trigram bitmap entirely. Multi-
+   token FTS queries (e.g. `modern history`) drop from 186 ms to 5 ms
+   because adaptive returns the FTS hits without running the trigram pass.
+3. **`total_count=false` removes the second-biggest cost.** The previous
+   `COUNT(*) OVER()` window aggregate forced materialisation of the full
+   match set before `LIMIT`. Latency now scales with page size, not
+   match-set size. Opt back in per-query when an exact total is required.
+4. **The `trigram_threshold` setting is still the dominant trigram cost knob.**
+   A 2× change in threshold can change p50 by 10–100× on the hybrid
+   fallback path. The default `0.3` is chosen to be safe for typical
+   mixed-length corpora; tune **higher** for long-text corpora, **lower**
+   only for short titles where false negatives are the bigger concern.
+5. **The `database` driver wins on small literal-substring queries** because
    `LIMIT 20` short-circuits its sequential scan. It loses badly on
    `no_match` (full table seq scan) and on multi-token queries (zero recall).
 

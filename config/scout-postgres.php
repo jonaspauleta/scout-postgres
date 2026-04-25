@@ -50,15 +50,18 @@ return [
     |
     |   "similarity"             — operator `%`,  whole-string overlap
     |   "word_similarity"        — operator `<%`, considers only words near
-    |                              the query; cheaper on long-text corpora
+    |                              the query
     |   "strict_word_similarity" — operator `<<%`, requires extent boundaries
     |                              to align (most selective)
     |
-    | Default is `word_similarity` because it is materially faster on
-    | long-text columns (multi-paragraph summaries) where whole-string
-    | similarity wastes work on irrelevant tail content.
+    | Default is `similarity` because it has the most predictable performance
+    | profile when paired with the default `trigram_threshold = 0.3`. The
+    | `<%` and `<<%` operators have different threshold semantics (default
+    | GUC 0.6) and produce larger candidate bitmaps at the same numerical
+    | threshold; switch only after measuring on your corpus and tuning the
+    | threshold accordingly.
     */
-    'trigram_function' => env('SCOUT_POSTGRES_TRIGRAM_FUNCTION', 'word_similarity'),
+    'trigram_function' => env('SCOUT_POSTGRES_TRIGRAM_FUNCTION', 'similarity'),
 
     /*
     |--------------------------------------------------------------------------

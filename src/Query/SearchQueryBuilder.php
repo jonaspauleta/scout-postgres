@@ -70,7 +70,7 @@ final readonly class SearchQueryBuilder
             'rank_weights' => self::resolveWeights($override),
             'rank_normalization' => self::resolveInt($override, 'rank_normalization', 32),
             'query_strategy' => self::resolveString($override, 'query_strategy', 'adaptive'),
-            'trigram_function' => self::resolveString($override, 'trigram_function', 'word_similarity'),
+            'trigram_function' => self::resolveString($override, 'trigram_function', 'similarity'),
             'prefix_fast_path' => self::resolveBool($override, 'prefix_fast_path', true),
             'prefix_fast_path_max_length' => self::resolveInt($override, 'prefix_fast_path_max_length', 6),
             'disable_jit' => self::resolveBool($override, 'disable_jit', true),
