@@ -2,6 +2,7 @@
 
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/jonaspauleta/scout-postgres.svg?style=flat-square)](https://packagist.org/packages/jonaspauleta/scout-postgres)
 [![Tests](https://img.shields.io/github/actions/workflow/status/jonaspauleta/scout-postgres/run-tests.yml?branch=main&label=tests&style=flat-square)](https://github.com/jonaspauleta/scout-postgres/actions/workflows/run-tests.yml)
+[![Coverage](https://img.shields.io/codecov/c/github/jonaspauleta/scout-postgres?style=flat-square)](https://codecov.io/gh/jonaspauleta/scout-postgres)
 [![Total Downloads](https://img.shields.io/packagist/dt/jonaspauleta/scout-postgres.svg?style=flat-square)](https://packagist.org/packages/jonaspauleta/scout-postgres)
 [![License](https://img.shields.io/packagist/l/jonaspauleta/scout-postgres.svg?style=flat-square)](LICENSE.md)
 

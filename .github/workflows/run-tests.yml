@@ -57,7 +57,7 @@ jobs:
         with:
           php-version: ${{ matrix.php }}
           extensions: pdo_pgsql, mbstring, intl
-          coverage: none
+          coverage: pcov
 
       - name: Install Composer dependencies
         env:
@@ -81,9 +81,28 @@ jobs:
 
       - name: Pest
         run: vendor/bin/pest --ci
+        if: ${{ !(matrix.php == '8.5' && matrix.illuminate == '^13.0') }}
         env:
           DB_HOST: 127.0.0.1
           DB_PORT: 5432
           DB_DATABASE: scout_postgres_test
           DB_USERNAME: postgres
           DB_PASSWORD: postgres
+
+      - name: Pest (with coverage)
+        run: vendor/bin/pest --ci --coverage --coverage-clover=coverage.xml
+        if: ${{ matrix.php == '8.5' && matrix.illuminate == '^13.0' }}
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5432
+          DB_DATABASE: scout_postgres_test
+          DB_USERNAME: postgres
+          DB_PASSWORD: postgres
+
+      - name: Upload coverage to Codecov
+        if: ${{ matrix.php == '8.5' && matrix.illuminate == '^13.0' }}
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage.xml
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
