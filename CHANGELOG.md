@@ -91,8 +91,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Performance
 
-Measured at 50,150 rows / hot cache, post-1.0.0 defaults vs `1.0.0` (full
-table in `benchmarks/README.md`):
+Measured at **500,150 rows** / hot cache, 30 measured calls per query
+(full table in `benchmarks/README.md`).
+
+vs Scout's `database` driver:
+
+| query                      | scout-postgres p50 | database p50    | speedup           |
+|----------------------------|-------------------:|----------------:|:------------------|
+| `world` (common token)     |             4.0 ms |          2.4 ms | `database` 1.7×   |
+| `modern history`           |             5.4 ms |       2100.1 ms | **scout-pg 388×** + recall (20 / 0) |
+| `philosophical exposition` |             5.3 ms |          2.5 ms | `database` 2.1×   |
+| `phil` (short prefix)      |             4.4 ms |          2.4 ms | `database` 1.8×   |
+| `philosphy` (typo)         |            45.0 ms |       1988.7 ms | **scout-pg 44×**  |
+| `qwxzqwxzqwxz` (no match)  |             8.0 ms |       2067.6 ms | **scout-pg 257×** |
+| long natural query         |             8.8 ms |          3.1 ms | `database` 2.8×   |
+
+vs the 1.0.0 single-pass hybrid (50,150 rows / hot cache, same hardware):
 
 - `phil` (short prefix as-you-type):     **599.5 ms → 4.0 ms** (151× faster)
 - `modern history` (multi-token FTS):    **185.7 ms → 4.9 ms** (38×)
@@ -101,11 +115,12 @@ table in `benchmarks/README.md`):
 - `philosphy` (typo, falls back hybrid):    9.2 ms → 13.1 ms (small fallback overhead)
 - `qwxzqwxzqwxz` (no match, falls back):    4.6 ms → 7.9 ms
 
-The two slower cases pay a ~3 ms adaptive-fallback overhead because the
-engine runs the cheap FTS query first, sees zero hits, then re-runs the
-hybrid trigram query. Both still well within the package's
-sub-100 ms latency budget; the latency floor for typical paginated
-queries is now bounded by page size rather than match-set size.
+`database` remains the cheaper option on single-token literal queries with
+hits — `LIMIT 20` short-circuits its seq-scan fast. It melts on no-match
+and multi-token queries because `LIKE %term%` cannot use a B-tree index
+and cannot bridge token gaps; at 500k rows the gap is 250–390× and growing
+linearly with corpus size. scout-postgres trades a 1.5–3× overhead on the
+easy queries for predictably bounded latency on the hard ones.
 
 ### Repository
 
