@@ -5,7 +5,7 @@
 [![Total Downloads](https://img.shields.io/packagist/dt/jonaspauleta/scout-postgres.svg?style=flat-square)](https://packagist.org/packages/jonaspauleta/scout-postgres)
 [![License](https://img.shields.io/packagist/l/jonaspauleta/scout-postgres.svg?style=flat-square)](LICENSE.md)
 
-Native Postgres full-text search + `pg_trgm` trigram similarity engine for [Laravel Scout](https://laravel.com/docs/scout). Drop-in replacement for Meilisearch / Algolia / Typesense when you already run Postgres — no extra service, no sync queue, no separate index.
+Postgres-native search engine for [Laravel Scout](https://laravel.com/docs/scout). Removes the need for Meilisearch / Algolia / Typesense for the common 80% case when you already run Postgres — no extra service, no sync queue, no separate index. See [Comparison](#comparison) and [Limitations](#limitations) for the cases it does **not** cover.
 
 Works on any Postgres 14+ where `pg_trgm` and `unaccent` are available — managed (Neon, Laravel Cloud, RDS, Supabase, DigitalOcean) or self-managed.
 
