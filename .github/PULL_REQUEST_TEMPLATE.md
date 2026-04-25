@@ -22,7 +22,7 @@ Closes #
 - [ ] Pest test added that fails before this change and passes after.
 - [ ] `composer quality` passes clean (Rector, Pint, PHPStan level max).
 - [ ] `composer test` passes locally against Postgres 14+.
-- [ ] `CHANGELOG.md` updated under `[Unreleased]` using Keep a Changelog categories.
+- [ ] `CHANGELOG.md` updated with an entry describing the change, using Keep a Changelog categories.
 - [ ] README / docblocks updated if public API changed.
 - [ ] Conventional Commit prefix on the PR title (`feat:`, `fix:`, `docs:`, …).
 

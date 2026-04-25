@@ -15,7 +15,7 @@ body:
     attributes:
       label: Package version
       description: Output of `composer show jonaspauleta/scout-postgres | grep versions`.
-      placeholder: "0.3.0"
+      placeholder: "1.0.0"
     validations:
       required: true
 

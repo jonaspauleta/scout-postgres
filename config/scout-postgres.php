@@ -97,8 +97,8 @@ return [
     |              FTS+trigram query only when FTS recall is insufficient.
     |              Cheapest on common queries; same recall as "hybrid" on
     |              typo / fuzzy queries via fallback.
-    | "hybrid"   — always run the FTS+trigram query in a single pass. The
-    |              pre-1.0 behaviour. Use to reproduce historical timings.
+    | "hybrid"   — always run the FTS+trigram query in a single pass.
+    |              Higher floor latency, no two-query fallback overhead.
     | "fts_only" — never use trigram. Loses typo tolerance but cuts the
     |              trigram-bitmap candidate-set cost on every query.
     */

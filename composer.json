@@ -30,6 +30,8 @@
     ],
     "require": {
         "php": "^8.3",
+        "ext-pdo": "*",
+        "ext-pdo_pgsql": "*",
         "illuminate/contracts": "^11.0 || ^12.0 || ^13.0",
         "illuminate/database": "^11.0 || ^12.0 || ^13.0",
         "illuminate/support": "^11.0 || ^12.0 || ^13.0",
@@ -79,6 +81,5 @@
             "providers": ["ScoutPostgres\\ScoutPostgresServiceProvider"]
         }
     },
-    "minimum-stability": "dev",
     "prefer-stable": true
 }

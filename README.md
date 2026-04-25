@@ -6,13 +6,31 @@
 [![Total Downloads](https://img.shields.io/packagist/dt/jonaspauleta/scout-postgres.svg?style=flat-square)](https://packagist.org/packages/jonaspauleta/scout-postgres)
 [![License](https://img.shields.io/packagist/l/jonaspauleta/scout-postgres.svg?style=flat-square)](LICENSE.md)
 
-Postgres-native search engine for [Laravel Scout](https://laravel.com/docs/scout). Removes the need for Meilisearch / Algolia / Typesense for the common 80% case when you already run Postgres — no extra service, no sync queue, no separate index. See [Comparison](#comparison) and [Limitations](#limitations) for the cases it does **not** cover.
+A Postgres-native Laravel Scout engine for apps that want search without running Meilisearch, Algolia, or Typesense. Targets the common 80% case when you already run Postgres — no extra service, no sync queue, no separate index. See [Should I use this?](#should-i-use-this), [Comparison](#comparison), and [Limitations](#limitations) for the cases it does **not** cover.
 
 Works on any Postgres 14+ where `pg_trgm` and `unaccent` are available — managed (Neon, Laravel Cloud, RDS, Supabase, DigitalOcean) or self-managed.
 
 ## Why
 
 Most Laravel apps already have Postgres. Adding Meilisearch or Typesense means another service to deploy, secure, monitor, scale, and keep in sync. For mid-sized catalogs (millions of rows, sub-100ms p95) Postgres FTS combined with `pg_trgm` similarity is good enough, cheaper, and stays consistent with your source of truth — there is no separate index to drift out of sync.
+
+## Should I use this?
+
+**Use it when:**
+
+- You already run Postgres and don't want to operate a second search service.
+- Your corpus is in the hundreds-of-thousands to low-millions of rows.
+- You need typo tolerance, prefix / as-you-type matching, and accent-insensitive search.
+- You're happy with raw-SQL faceting and aggregation (Scout returns model IDs; you join from there).
+- A single `regconfig` (text search configuration) per table is enough — usually `simple_unaccent` or one language per migration.
+
+**Use a dedicated engine instead when:**
+
+- You need first-class faceting, highlighting, or synonym dictionaries.
+- You need per-document language switching (English row, Portuguese row, Japanese row in the same table).
+- Your corpus is hundreds of millions of rows.
+- You need geo-search and don't want to add PostGIS.
+- You need learning-to-rank, vector hybrid search, or relevance feedback features.
 
 ## Comparison
 
@@ -266,8 +284,8 @@ LIMIT :perPage OFFSET :offset;
 
 So in the worst case adaptive runs two queries; in the common case it runs
 one. `query_strategy=hybrid` forces single-pass FTS+trigram for every
-query (the pre-1.0 behaviour). `query_strategy=fts_only` never runs the
-trigram pass — fastest but loses typo recovery.
+query. `query_strategy=fts_only` never runs the trigram pass — fastest but
+loses typo recovery.
 
 ### Short-prefix fast path
 
@@ -329,8 +347,8 @@ that matter:
   are available as opt-in tunings; their thresholds have different
   semantics so re-tune the threshold when switching.
 
-See [`benchmarks/`](benchmarks/) for measured numbers on a 50,150-row
-corpus, including before/after deltas vs `1.0.0`.
+See [`benchmarks/`](benchmarks/) for measured numbers on 50k and 500k
+row corpora, with full methodology and the artisan harness.
 
 ## Production notes
 
@@ -382,8 +400,7 @@ Book::search('foo')
     ->paginate(20);
 ```
 
-Or globally via `SCOUT_POSTGRES_TOTAL_COUNT=true` to restore the pre-1.0
-default for every search.
+Or globally via `SCOUT_POSTGRES_TOTAL_COUNT=true` for every search.
 
 When `total_count` is enabled the window aggregate forces Postgres to
 materialise every matching row before applying `LIMIT`, so latency scales
@@ -393,8 +410,6 @@ million-row corpora.
 ## Stability
 
 The package is **stable** as of `v1.0.0`. The public API — the `postgresSearchable()` migration macro, the `dropPostgresSearchable()` macro, the `PostgresSearchable` contract, the `pgsql` Scout engine driver name, and the keys in `config/scout-postgres.php` — is committed across the entire `1.x` line. Breaking changes will land on a `2.0.0` release tag and will be documented in `CHANGELOG.md` with a migration note.
-
-The legacy `ApexScout\ScoutPostgres\` namespace was dropped in `1.1.0` — migrate any remaining imports to `ScoutPostgres\…`.
 
 ## Limitations
 
@@ -421,32 +436,34 @@ The model's connection driver is not `pgsql`. Check `config/database.php` and th
 **`text search configuration "simple_unaccent" does not exist`**
 The package migration did not run. Run `php artisan migrate`. The package's own migration is loaded automatically — no `--path` flag is needed.
 
-## Upgrading from earlier 1.x releases
+## FAQ
 
-The post-1.0.0 work flips several behavioural defaults to make the
-out-of-the-box experience faster on common Scout-driver workloads. Each is
-backed by a config key so the old behaviour can be restored without code
-changes — useful when an existing deployment depends on the previous
-ranking or pagination semantics.
+**Do I need to run `php artisan scout:import`?**
+No. The `search_vector` and `search_text` columns are `STORED GENERATED`,
+so Postgres recomputes them automatically on every `INSERT` / `UPDATE`.
+There is no external index to seed.
 
-| Change                                      | Restore old behaviour                                |
-|---------------------------------------------|------------------------------------------------------|
-| Adaptive query strategy (FTS-first)         | `SCOUT_POSTGRES_QUERY_STRATEGY=hybrid`               |
-| Short-prefix fast path                      | `SCOUT_POSTGRES_PREFIX_FAST_PATH=false`              |
-| `COUNT(*) OVER()` omitted by default        | `SCOUT_POSTGRES_TOTAL_COUNT=true`                    |
-| `SET LOCAL jit = off` per query             | `SCOUT_POSTGRES_DISABLE_JIT=false`                   |
-| `search_text` capped at 1000 chars (new migrations only) | pass `0` as the third macro arg: `$table->postgresSearchable($weights, null, 0)` |
+**Should I enable `SCOUT_QUEUE=true`?**
+No — keep it `false`. Scout's queue exists to debounce writes to a remote
+index; this engine has no remote index. Enabling the queue just adds a
+no-op job to your worker.
 
-Existing `search_text` columns are unaffected by the cap — only new
-migrations applying `postgresSearchable()` pick up the `LEFT(...)` wrapper.
+**Why are `update`, `delete`, `flush`, `createIndex`, and `deleteIndex`
+no-ops?**
+The Postgres generated columns and GIN indexes are the source of truth.
+There is no separate index to push to, so Scout's per-row sync hooks have
+nothing to do — the engine implements them as no-ops on purpose. Adding
+`postgresSearchable()` in a migration is the only "indexing" step.
 
-The legacy `ApexScout\ScoutPostgres\` namespace was removed in `1.1.0`.
-Replace any remaining imports:
+**What text search configuration does the engine use?**
+`simple_unaccent` — a copy of the built-in `simple` config mapped through
+the `unaccent` dictionary. The package migration creates it. Override via
+`SCOUT_POSTGRES_CONFIG` or per model via `scoutPostgresConfig()`.
 
-```diff
--use ApexScout\ScoutPostgres\Contracts\PostgresSearchable;
-+use ScoutPostgres\Contracts\PostgresSearchable;
-```
+**Can different models use different connections?**
+Yes. The model's connection driver must be `pgsql`, otherwise the engine
+throws `UnsupportedDriverException`. The engine reads the connection from
+the model on every query.
 
 ## Testing
 
@@ -467,7 +484,7 @@ When sending a PR:
 
 1. Add a Pest test that fails before your change and passes after.
 2. Run `composer quality` — it must pass clean (Pint, Rector, PHPStan level max).
-3. Update `CHANGELOG.md` under the `[Unreleased]` section.
+3. Update `CHANGELOG.md` with an entry describing the change.
 
 ## Security
 

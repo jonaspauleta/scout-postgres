@@ -14,7 +14,7 @@ Thanks for considering a contribution. This document is short and concrete.
    composer test      # pest
    ```
 
-5. Update `CHANGELOG.md` under the `[Unreleased]` section using [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) categories (`Added` / `Changed` / `Fixed` / `Deprecated` / `Removed` / `Security`).
+5. Update `CHANGELOG.md` with an entry describing the change, using [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) categories (`Added` / `Changed` / `Fixed` / `Deprecated` / `Removed` / `Security`). Maintainers cut and tag releases.
 6. Commit using [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:` …).
 7. Open a PR against `main`. Link any related issue.
 

@@ -29,6 +29,9 @@ final class PostgresEngine extends Engine
     /** @var array<string, bool> */
     private array $verifiedTables = [];
 
+    /** @var array<string, string> */
+    private array $schemaCache = [];
+
     /**
      * @param  EloquentCollection<int, Model>  $models
      */
@@ -393,19 +396,41 @@ final class PostgresEngine extends Engine
 
     private function ensureSearchable(ConnectionInterface $connection, string $table): void
     {
-        if (isset($this->verifiedTables[$table])) {
+        $database = $connection->getDatabaseName();
+        $schema = $this->resolveSchema($connection, $database);
+        $cacheKey = $database.'|'.$schema.'|'.$table;
+
+        if (isset($this->verifiedTables[$cacheKey])) {
             return;
         }
 
         $rows = $connection->select(
-            'SELECT 1 FROM information_schema.columns WHERE table_name = ? AND column_name = ?',
-            [$table, 'search_vector'],
+            'SELECT 1 FROM information_schema.columns WHERE table_schema = ? AND table_name = ? AND column_name = ?',
+            [$schema, $table, 'search_vector'],
         );
 
         if ($rows === []) {
             throw ModelNotSearchableException::for($table);
         }
 
-        $this->verifiedTables[$table] = true;
+        $this->verifiedTables[$cacheKey] = true;
+    }
+
+    private function resolveSchema(ConnectionInterface $connection, string $database): string
+    {
+        if (isset($this->schemaCache[$database])) {
+            return $this->schemaCache[$database];
+        }
+
+        $rows = $connection->select('SELECT current_schema() AS current_schema');
+        $resolved = 'public';
+        if ($rows !== [] && $rows[0] instanceof stdClass) {
+            $value = $rows[0]->current_schema ?? null;
+            if (is_string($value) && $value !== '') {
+                $resolved = $value;
+            }
+        }
+
+        return $this->schemaCache[$database] = $resolved;
     }
 }

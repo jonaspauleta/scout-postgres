@@ -5,241 +5,71 @@ All notable changes to `jonaspauleta/scout-postgres` are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
-
-## [1.1.0] - 2026-04-25
-
-### Removed
-
-- **Legacy `ApexScout\ScoutPostgres\` namespace shims.** The `class_alias()`
-  bridge introduced when the package was renamed in 1.0 has been removed
-  along with `src/aliases.php` and its `composer.json` `files` autoload
-  entry. Replace any remaining imports:
-  ```diff
-  -use ApexScout\ScoutPostgres\Contracts\PostgresSearchable;
-  +use ScoutPostgres\Contracts\PostgresSearchable;
-  ```
-
-### Added
-
-- **`postgresSearchable()` macro now caps `search_text` length** at 1000
-  characters by default via a `LEFT(...)` wrapper inside the STORED
-  generation expression. Trigram-bitmap cost grows linearly with text
-  length, so capping the concatenated text removes the long-tail latency
-  contribution from multi-paragraph `summary` columns. Pass a custom cap or
-  `0` (no cap) as the third macro argument:
-  `$table->postgresSearchable($weights, null, $maxLength: 2000)`.
-  Existing tables are unaffected — the cap only applies on new migrations.
-  The `search_vector` column is never capped because `to_tsvector` already
-  deduplicates lexemes.
-- **`disable_jit` config (default `true`).** Each search transaction issues
-  `SET LOCAL jit = off` so the JIT compile cost (10–30 ms on cold queries)
-  cannot dominate the wall time of FTS queries that themselves complete in
-  single-digit ms. Override with `SCOUT_POSTGRES_DISABLE_JIT=false` on
-  hardware where JIT actually pays off.
-- **`total_count` config (default `false`).** Replaces the previous always-on
-  `COUNT(*) OVER()` window aggregate. When false, `getTotalCount()` returns
-  the size of the current page rather than the full match set, dropping p95
-  on broad queries from match-set-bound to page-size-bound. Per-query opt-in
-  remains available via
-  `->options(['scout_postgres' => ['total_count' => true]])`.
-- **`prefix_fast_path` config (default `true`) and `prefix_fast_path_max_length`
-  (default `6`).** Single short tokens (e.g. `phil`, `nurb`) bypass
-  `websearch_to_tsquery` and the trigram pass entirely; the engine runs only
-  `to_tsquery(:prefix:*)`. Cuts the as-you-type latency floor on broad-match
-  queries — the case where the trigram bitmap was previously dominant.
-- **`trigram_function` config (`similarity` / `word_similarity` / `strict_word_similarity`).**
-  Default is `similarity` (the pre-1.0 behaviour). The function controls
-  both the scoring expression (`<fn>(search_text, :raw)`) and the
-  WHERE-clause operator (`%`, `<%`, `<<%`); the per-query `SET LOCAL`
-  threshold variable name is derived to match. Switch to `word_similarity`
-  or `strict_word_similarity` only after measuring on your corpus —
-  benchmarks on the bundled long-text corpus showed `<%` produced larger
-  candidate bitmaps at the same numerical threshold and was net slower than
-  `%` on no-match queries.
-- **`query_strategy` config (`adaptive` / `hybrid` / `fts_only`).** Default is
-  `adaptive`: the engine first runs an FTS-only query and only falls back to
-  the hybrid FTS + trigram query when FTS recall is insufficient. The fallback
-  preserves typo tolerance for queries that need it (single-character typos,
-  fuzzy phrasing) while skipping the expensive trigram bitmap on common
-  queries. Override per model via `scoutPostgresConfig()` or globally via the
-  `SCOUT_POSTGRES_QUERY_STRATEGY` env var. Set `hybrid` to reproduce the
-  pre-1.0 single-pass behaviour.
-
-### Changed
-
-- **Default `total_count` flipped from `true` to `false`.** The previous
-  default forced Postgres to materialise every matching row before applying
-  `LIMIT`, so latency scaled with match-set size rather than page size. The
-  per-query opt-out shipped in 1.0.0; this release flips the default. Apps
-  relying on `LengthAwarePaginator::total()` showing the full match set must
-  set `SCOUT_POSTGRES_TOTAL_COUNT=true` to restore the old behaviour, or
-  pass `->options(['scout_postgres' => ['total_count' => true]])` per-query.
-- **Default search behaviour now runs FTS first, trigram on fallback.** The
-  previous default (`hybrid`) ran both signals in a single pass on every
-  query, paying the trigram cost even when FTS already had enough recall.
-  Users who relied on the trigram tie-break in score ordering may see ranking
-  differences on queries where multiple rows have identical FTS rank — set
-  `SCOUT_POSTGRES_QUERY_STRATEGY=hybrid` to restore the old ordering.
-
-- **Root PHP namespace renamed: `ApexScout\ScoutPostgres\` → `ScoutPostgres\`.**
-  The `ApexScout` prefix originated from a sister SaaS project and never
-  belonged on a standalone OSS package. The legacy namespace was kept as
-  `class_alias` shims through pre-release builds and **removed** in 1.1.0
-  (see Removed section). Replace remaining `use ApexScout\ScoutPostgres\…`
-  imports with `use ScoutPostgres\…`.
-
-### Performance
-
-Measured at **500,150 rows** / hot cache, 30 measured calls per query
-(full table in `benchmarks/README.md`).
-
-vs Scout's `database` driver:
-
-| query                      | scout-postgres p50 | database p50    | speedup           |
-|----------------------------|-------------------:|----------------:|:------------------|
-| `world` (common token)     |             4.0 ms |          2.4 ms | `database` 1.7×   |
-| `modern history`           |             5.4 ms |       2100.1 ms | **scout-pg 388×** + recall (20 / 0) |
-| `philosophical exposition` |             5.3 ms |          2.5 ms | `database` 2.1×   |
-| `phil` (short prefix)      |             4.4 ms |          2.4 ms | `database` 1.8×   |
-| `philosphy` (typo)         |            45.0 ms |       1988.7 ms | **scout-pg 44×**  |
-| `qwxzqwxzqwxz` (no match)  |             8.0 ms |       2067.6 ms | **scout-pg 257×** |
-| long natural query         |             8.8 ms |          3.1 ms | `database` 2.8×   |
-
-vs the 1.0.0 single-pass hybrid (50,150 rows / hot cache, same hardware):
-
-- `phil` (short prefix as-you-type):     **599.5 ms → 4.0 ms** (151× faster)
-- `modern history` (multi-token FTS):    **185.7 ms → 4.9 ms** (38×)
-- `philosophical exposition` (broad):     **82.6 ms → 4.6 ms** (18×)
-- `world` (common single token):           **8.9 ms → 4.0 ms** (2.2×)
-- `philosphy` (typo, falls back hybrid):    9.2 ms → 13.1 ms (small fallback overhead)
-- `qwxzqwxzqwxz` (no match, falls back):    4.6 ms → 7.9 ms
-
-`database` remains the cheaper option on single-token literal queries with
-hits — `LIMIT 20` short-circuits its seq-scan fast. It melts on no-match
-and multi-token queries because `LIKE %term%` cannot use a B-tree index
-and cannot bridge token gaps; at 500k rows the gap is 250–390× and growing
-linearly with corpus size. scout-postgres trades a 1.5–3× overhead on the
-easy queries for predictably bounded latency on the hard ones.
-
-### Repository
-
-- Replaced bug / feature issue templates with YAML form versions and
-  disabled blank issues via `.github/ISSUE_TEMPLATE/config.yml`.
-- Added `.github/FUNDING.yml`.
-- CI uploads coverage to Codecov on the highest matrix entry; README
-  badge added.
-
 ## [1.0.0] - 2026-04-25
 
-### Added
+First public stable release.
 
-- **`total_count` per-query option.** Pass
-  `->options(['scout_postgres' => ['total_count' => false]])` to skip the
-  `COUNT(*) OVER()` window aggregate. Latency drops to roughly the cost of
-  fetching the top `N` rows; in exchange, `getTotalCount()` reflects only
-  the size of the current page rather than the full match set.
-- **Benchmark harness** under `benchmarks/`: methodology, vendored artisan
-  command source, and a results table comparing `scout-postgres` against
-  Scout's `database` driver across seven query shapes on 50,150 rows.
-- README "Production notes" section now covers `trigram_threshold` tuning
-  per corpus and the `total_count` opt-out, with concrete latency numbers
-  taken from the benchmark.
+### Engine
 
-### Changed
+- Postgres-native Scout driver (`pgsql`) backed by `tsvector` full-text
+  search and `pg_trgm` trigram similarity, combined into a single hybrid
+  `_score` per row.
+- Three query strategies, selectable per model or globally via
+  `SCOUT_POSTGRES_QUERY_STRATEGY`:
+  - `adaptive` (default) — run an FTS-only query first; fall back to the
+    hybrid FTS + trigram query only when FTS recall is insufficient.
+  - `hybrid` — single-pass FTS + trigram on every query.
+  - `fts_only` — never use trigram. Loses typo tolerance, cuts trigram
+    bitmap cost on every query.
+- Short-prefix fast path (`prefix_fast_path=true`,
+  `prefix_fast_path_max_length=6`): single short tokens skip
+  `websearch_to_tsquery` and the trigram pass entirely; only
+  `to_tsquery(:prefix:*)` runs. Dominant win for as-you-type UIs.
+- `total_count` config (default `false`). When false, `getTotalCount()`
+  returns the size of the current page, dropping `COUNT(*) OVER()` and
+  scaling latency with page size instead of match-set size. Per-query
+  opt-in via `->options(['scout_postgres' => ['total_count' => true]])`.
+- `disable_jit` config (default `true`). Each search transaction issues
+  `SET LOCAL jit = off` so the JIT compile cost cannot dominate FTS
+  queries that complete in single-digit ms.
+- `trigram_function` config (`similarity` / `word_similarity` /
+  `strict_word_similarity`). Default `similarity`. Selects both the
+  scoring expression and the operator (`%` / `<%` / `<<%`); the
+  per-query `SET LOCAL` threshold variable is derived to match.
+- `trigram_threshold` default `0.3`, tuned for typical mixed-length
+  corpora (titles, authors, short descriptions). Long-text corpora
+  should tune higher; short-text corpora can lower it.
 
-- **Default `trigram_threshold` raised from `0.15` to `0.3`.** The previous
-  default optimised for very short text (titles, names); on long-text
-  corpora it produced trigram-bitmap candidate sets so large that `p95`
-  latency hit the seconds. The new default is safer for typical mixed-length
-  corpora; see `Production notes` for tuning guidance and benchmark numbers.
-  - **Migration:** if you indexed only short fields and want the previous
-    fuzzy-recall behaviour, set
-    `SCOUT_POSTGRES_TRIGRAM_THRESHOLD=0.15` or override per model via
-    `scoutPostgresConfig()`.
+### Schema
 
-### Stability
+- `Schema::table()->postgresSearchable([...])` macro adds two `STORED
+  GENERATED` columns (`search_vector`, `search_text`) plus matching GIN
+  indexes (one on the tsvector, one on the text with `gin_trgm_ops`).
+- `search_text` is wrapped in `LEFT(..., 1000)` by default so trigram
+  cost is bounded regardless of source-column length. Pass a custom cap
+  or `0` (no cap) as the third macro argument.
+- `dropPostgresSearchable()` macro removes both columns and indexes.
+- Package migration creates the `pg_trgm` and `unaccent` extensions and
+  the `simple_unaccent` text search configuration. Loaded automatically;
+  no `--path=` flag required.
 
-- This is the first release tagged as **stable** under SemVer.
-  `scout-postgres` is now committed to a non-breaking public API across the
-  `1.x` line. Configuration keys, the `PostgresSearchable` contract, the
-  `postgresSearchable()` schema macro, and the engine driver name (`pgsql`)
-  are all part of the API surface.
+### Per-model overrides
 
-## [0.4.1] - 2026-04-25
+- `PostgresSearchable` contract lets a single model override any
+  `config/scout-postgres.php` key via `scoutPostgresConfig()`.
 
-### Fixed
+### Query support
 
-- **Runtime failure on PHP 8.3.** `Query/QueryEscaper` and `Query/SearchQueryBuilder` used `mb_trim()`, which is PHP 8.4+. The package declared `php ^8.3` in `composer.json` but would fatal at runtime on 8.3. Replaced with `trim()` — the call sites already collapse multi-byte whitespace via `preg_replace('/\s+/', ' ', …)` so plain `trim()` is sufficient.
-- **PHPStan failures on Laravel 11 + PHP 8.3/8.4.** Test fixtures used `#[Hidden]` / `#[Table]` (Laravel 12+) and `#[Override]` on properties (PHP 8.5+). Reverted to `protected $hidden` / `protected $table` and dropped the `#[Override]` attributes so the fixtures compile and analyse cleanly across the full support matrix.
+- Scout-native: `Model::search()`, `where()`, `whereIn()`, `whereNotIn()`,
+  `orderBy()`, `paginate()`, `cursor()`, soft deletes
+  (`scout.soft_delete=true`).
 
-### Changed
+### Compatibility
 
-- Rector now skips `tests/Fixtures` so the `LARAVEL_CODE_QUALITY` set does not re-introduce Laravel 12+ attributes into the fixtures.
+- PHP 8.3 / 8.4 / 8.5
+- Laravel 11 / 12 / 13
+- Laravel Scout 10 / 11
+- Postgres 14+ (CI-tested on Postgres 18) with `pg_trgm` ≥ 1.6 and
+  `unaccent` ≥ 1.1.
 
-## [0.4.0] - 2026-04-25
-
-### Added
-
-- Repository hygiene: `CODE_OF_CONDUCT.md`, GitHub issue / PR templates, Dependabot config.
-- `support` block in `composer.json` (issues / source / docs URLs).
-- CI matrix across PHP 8.3 / 8.4 / 8.5 × Laravel 11 / 12 / 13 with locked Postgres 18 service.
-- Least-privilege `permissions: contents: read` on the test workflow.
-
-### Changed
-
-- **Widened version support:** `php ^8.3` (was `^8.5`), `illuminate/* ^11.0 || ^12.0 || ^13.0` (was `^13.0`), `laravel/scout ^10.0 || ^11.0` (was `^11.0`). Verified by CI matrix.
-- README requirements table reflects the new support matrix; positioning softened to cover any managed or self-managed Postgres rather than naming Neon / Laravel Cloud first.
-- `.gitattributes` now `export-ignore`s internal agent guides (`CLAUDE.md`), tooling configs, and build artefacts so the Packagist tarball ships only runtime assets.
-- `CONTRIBUTING.md` PHP minimum corrected to 8.3+ (was wrongly stated as 8.5+).
-- `PostgresSearchable` contract docblock cleaned up: dropped stale `sync` key reference and clarified that the contract (not the method) is opt-in.
-- Maintainer contact email updated across `composer.json`, `LICENSE.md`, `SECURITY.md`, and `README.md`.
-
-### Removed
-
-- Dead `InvalidSearchQueryException` class — never thrown from the engine.
-- Dead `sync` config key (and `SCOUT_POSTGRES_SYNC` env binding). The engine has nothing to sync; STORED generated columns recompute on write. Use Scout's own `config/scout.php` `'soft_delete'` for soft-delete handling.
-
-## [0.3.0] - 2026-04-23
-
-### Changed
-
-- **Composer vendor renamed:** `apex-scout/scout-postgres` → `jonaspauleta/scout-postgres`. Update consumers' `composer.json` `require` block. The `ApexScout\ScoutPostgres\` PHP namespace is unchanged.
-- Initial Packagist release. Previously distributed via VCS repository entry only.
-
-### Migration
-
-```diff
--    "apex-scout/scout-postgres": "^0.2.0"
-+    "jonaspauleta/scout-postgres": "^0.3.0"
-```
-
-If your `composer.json` declared a VCS repo for this package, remove that block — Packagist now serves it.
-
-## [0.2.0] - 2026
-
-### Added
-
-- PHPStan level `max` enforcement with typed Scout builder generics and config shapes.
-
-## [0.1.1]
-
-### Fixed
-
-- Migration filename prefix to ensure deterministic ordering.
-
-## [0.1.0]
-
-### Added
-
-- Initial release: Postgres 18 full-text search + `pg_trgm` engine for Laravel Scout.
-
-[Unreleased]: https://github.com/jonaspauleta/scout-postgres/compare/v1.1.0...HEAD
-[1.1.0]: https://github.com/jonaspauleta/scout-postgres/releases/tag/v1.1.0
 [1.0.0]: https://github.com/jonaspauleta/scout-postgres/releases/tag/v1.0.0
-[0.4.1]: https://github.com/jonaspauleta/scout-postgres/releases/tag/v0.4.1
-[0.4.0]: https://github.com/jonaspauleta/scout-postgres/releases/tag/v0.4.0
-[0.3.0]: https://github.com/jonaspauleta/scout-postgres/releases/tag/v0.3.0
-[0.2.0]: https://github.com/jonaspauleta/scout-postgres/releases/tag/v0.2.0
-[0.1.1]: https://github.com/jonaspauleta/scout-postgres/releases/tag/v0.1.1
-[0.1.0]: https://github.com/jonaspauleta/scout-postgres/releases/tag/v0.1.0

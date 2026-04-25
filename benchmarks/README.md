@@ -52,12 +52,12 @@ php artisan bench:scout --seed=500000 --runs=30 --warmup=3
 
 Run on Postgres 18.3, PHP 8.5, Laravel 13, 500,150 rows, hot cache.
 
-### Current defaults (adaptive strategy, prefix fast path, JIT off, total_count off)
+### Default config (500,150 rows)
 
-Run with the 1.1.0 default config: `query_strategy=adaptive`,
+Run with the shipped defaults: `query_strategy=adaptive`,
 `prefix_fast_path=true`, `disable_jit=true`, `total_count=false`,
 `trigram_function=similarity`, `trigram_threshold=0.3`. Schema migrated with
-the new `search_text` cap (1000 chars).
+the `search_text` cap (1000 chars).
 
 | query              | `pgsql` p50 (ms) | `database` p50 (ms) | hits (pg / db) | notes                                                |
 |--------------------|-----------------:|--------------------:|:---------------|:-----------------------------------------------------|
@@ -81,7 +81,9 @@ holds latency bounded and where it doesn't:
 - `qwxzqwxzqwxz` stays cheap because the trigram bitmap is empty — the
   GIN index returns no candidates regardless of corpus size.
 
-### 50,150-row results (post-1.0 defaults) — for reference
+### Default config (50,150 rows) — for corpus-size scaling
+
+Same configuration, smaller corpus, same hardware:
 
 | query              | `pgsql` p50 (ms) | `database` p50 (ms) | hits (pg / db) |
 |--------------------|-----------------:|--------------------:|:---------------|
@@ -93,51 +95,26 @@ holds latency bounded and where it doesn't:
 | `qwxzqwxzqwxz`     |              7.9 |               191.5 | 0 / 0          |
 | long natural query |              7.1 |                 2.9 | 20 / 20        |
 
-### 1.0.0 results at 50,150 rows (`trigram_threshold = 0.3`, no adaptive)
-
-| query              | `pgsql` p50 (ms) | `database` p50 (ms) | hits (pg / db) | notes                                     |
-|--------------------|-----------------:|--------------------:|:---------------|:------------------------------------------|
-| `world`            |              8.9 |                 2.3 | 20 / 20        | both indexed paths fast                   |
-| `modern history`   |            185.7 |               196.0 | **20 / 0**     | `database` cannot bridge token gaps       |
-| `philosophical exposition` | 82.6     |                 2.8 | 20 / 20        | window-aggregate cost on broad match set  |
-| `phil`             |            599.5 |                 2.7 | 20 / 20        | short prefix → broad match → big sort     |
-| `philosphy`        |              9.2 |               186.7 | 0 / 0          | trigram correctly rejects, fast           |
-| `qwxzqwxzqwxz`     |              4.6 |               175.5 | 0 / 0          | GIN miss is instant; LIKE seq-scans       |
-| `a comprehensive history of modern philosophical thought` | 31.3 | 2.6 | 20 / 20        | FTS handles long queries                  |
-
-### Pre-1.0 default at 50,150 rows (`trigram_threshold = 0.15`) — for reference
-
-| query              | `pgsql` p50 (ms) | `database` p50 (ms) | hits (pg / db) |
-|--------------------|-----------------:|--------------------:|:---------------|
-| `world`            |            180.2 |                 2.4 | 20 / 20        |
-| `modern history`   |           1263.9 |               181.3 | 20 / 0         |
-| `philosophical exposition` |   1584.4 |                 3.0 | 20 / 20        |
-| `phil`             |           1428.7 |                 2.9 | 20 / 20        |
-| `philosphy`        |            483.6 |               172.8 | 0 / 0          |
-| `qwxzqwxzqwxz`     |              4.8 |               176.5 | 0 / 0          |
-| long natural query |           1393.7 |                 3.0 | 20 / 20        |
-
-The 0.15 default is preserved here as evidence for the threshold change in 1.0.0.
-
 ## Findings
 
 1. **`scout-postgres` has measurably better recall.** Multi-token queries,
    prefix matches, and accent variants all return matches that the
    `database` driver's `LIKE %term%` strategy misses entirely.
 2. **The adaptive strategy + short-prefix fast path are the dominant wins.**
-   `phil` drops from 599 ms (1.0.0) to 4 ms (current) because the fast path
-   skips both `websearch_to_tsquery` and the trigram bitmap entirely. Multi-
-   token FTS queries (e.g. `modern history`) drop from 186 ms to 5 ms
-   because adaptive returns the FTS hits without running the trigram pass.
-3. **`total_count=false` removes the second-biggest cost.** The previous
-   `COUNT(*) OVER()` window aggregate forced materialisation of the full
-   match set before `LIMIT`. Latency now scales with page size, not
-   match-set size. Opt back in per-query when an exact total is required.
-4. **The `trigram_threshold` setting is still the dominant trigram cost knob.**
-   A 2× change in threshold can change p50 by 10–100× on the hybrid
-   fallback path. The default `0.3` is chosen to be safe for typical
-   mixed-length corpora; tune **higher** for long-text corpora, **lower**
-   only for short titles where false negatives are the bigger concern.
+   The fast path skips both `websearch_to_tsquery` and the trigram bitmap
+   entirely on single short tokens, so `phil` runs in ~4 ms even on
+   500k rows. Multi-token FTS queries (e.g. `modern history`) stay
+   sub-10 ms because adaptive returns the FTS hits without running the
+   trigram pass.
+3. **`total_count=false` removes a major p95 cost.** A `COUNT(*) OVER()`
+   window aggregate forces materialisation of the full match set before
+   `LIMIT`. With it off, latency scales with page size, not match-set
+   size. Opt back in per-query when an exact total is required.
+4. **`trigram_threshold` is the dominant trigram cost knob.** A 2× change
+   in threshold can change p50 by 10–100× on the hybrid fallback path.
+   The default `0.3` is chosen to be safe for typical mixed-length
+   corpora; tune **higher** for long-text corpora, **lower** only for
+   short titles where false negatives are the bigger concern.
 5. **The `database` driver wins on small literal-substring queries** because
    `LIMIT 20` short-circuits its sequential scan. It loses badly on
    `no_match` (full table seq scan) and on multi-token queries (zero recall).

@@ -34,8 +34,8 @@ Security fixes are issued for the latest minor release. Older minors receive fix
 
 | Version | Supported          |
 |---------|--------------------|
-| 0.3.x   | ✅                 |
-| < 0.3   | ❌                 |
+| 1.x     | ✅                 |
+| < 1.0   | ❌                 |
 
 ## Credit
 
