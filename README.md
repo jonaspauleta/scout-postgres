@@ -14,6 +14,18 @@ Works on any Postgres 14+ where `pg_trgm` and `unaccent` are available — manag
 
 Most Laravel apps already have Postgres. Adding Meilisearch or Typesense means another service to deploy, secure, monitor, scale, and keep in sync. For mid-sized catalogs (millions of rows, sub-100ms p95) Postgres FTS combined with `pg_trgm` similarity is good enough, cheaper, and stays consistent with your source of truth — there is no separate index to drift out of sync.
 
+### Head-to-head vs Scout's `database` driver
+
+500k rows, hot cache, p50 over 30 runs. The `database` driver uses `LIKE %term%` — it seq-scans the table when no index matches.
+
+| query            | `pgsql` p50 | `database` p50 | pgsql hits | database hits |
+|------------------|------------:|---------------:|-----------:|--------------:|
+| `modern history` |      5.4 ms |      2100 ms   |         20 |             0 |
+| `philosphy`      |       45 ms |      1989 ms   |          0 |             0 |
+| `qwxzqwxzqwxz`   |        8 ms |      2068 ms   |          0 |             0 |
+
+The first row is the most telling: FTS bridges token gaps and returns 20 results; `database` seq-scans all 500k rows and returns nothing. Full methodology and reproducible harness in [/benchmarks](benchmarks/README.md).
+
 ## Should I use this?
 
 **Use it when:**
@@ -36,19 +48,28 @@ Most Laravel apps already have Postgres. Adding Meilisearch or Typesense means a
 
 Honest side-by-side. Use this to decide whether `scout-postgres` is the right tool, or whether you actually need a dedicated engine.
 
-| Capability                       | scout-postgres                              | Meilisearch                | Algolia                | Typesense              |
-|----------------------------------|---------------------------------------------|----------------------------|------------------------|------------------------|
-| Separate service to operate      | ❌ no — runs inside Postgres                | ✅ yes                     | ✅ yes (managed)       | ✅ yes                 |
-| Sync mechanism                   | None — `STORED GENERATED` columns           | Application pushes via API | Application pushes via API | Application pushes via API |
-| Typo tolerance                   | ✅ via `pg_trgm` similarity                 | ✅ built-in                | ✅ built-in            | ✅ built-in            |
-| Prefix / as-you-type matching    | ✅ via `to_tsquery(:*)`                     | ✅ built-in                | ✅ built-in            | ✅ built-in            |
-| Faceting / aggregations          | ⚠ via raw SQL; no facet API                | ✅ first-class             | ✅ first-class         | ✅ first-class         |
-| Highlighting / snippets          | ⚠ via `ts_headline`; not auto-wired         | ✅ built-in                | ✅ built-in            | ✅ built-in            |
-| Multi-language per row           | ❌ one `regconfig` per migration            | ✅ per-document             | ✅ per-document         | ✅ per-document         |
-| Synonyms                         | ❌ defer to your `regconfig`                | ✅ first-class             | ✅ first-class         | ✅ first-class         |
-| Geo-search                       | ⚠ via PostGIS, not this package             | ✅ built-in                | ✅ built-in            | ✅ built-in            |
-| Best-fit catalogue size          | ~hundreds → low millions of rows            | tens of millions           | hundreds of millions   | hundreds of millions   |
-| Cost model                       | Free — just Postgres CPU + storage          | Self-host or managed plan  | Per-record + per-search pricing | Self-host or Cloud plan |
+**Operational**
+
+| | scout-postgres | Meilisearch | Algolia | Typesense |
+|---|---|---|---|---|
+| Extra service to deploy/secure/monitor | ✅ no — runs inside Postgres | ❌ yes | ❌ yes (managed) | ❌ yes |
+| Sync queue / index drift risk | ✅ none — `STORED GENERATED` columns | ❌ app pushes via API | ❌ app pushes via API | ❌ app pushes via API |
+| Stays consistent with transactional DB | ✅ yes — no separate index | ❌ eventual consistency | ❌ eventual consistency | ❌ eventual consistency |
+| Monthly cost at small scale | ✅ free — Postgres CPU + storage only | ⚠ self-host or managed plan | ❌ per-record + per-search pricing | ⚠ self-host or Cloud plan |
+| Open source (MIT) | ✅ yes | ✅ yes | ❌ no | ✅ yes |
+
+**Capability**
+
+| | scout-postgres | Meilisearch | Algolia | Typesense |
+|---|---|---|---|---|
+| Typo tolerance | ✅ via `pg_trgm` similarity | ✅ built-in | ✅ built-in | ✅ built-in |
+| Prefix / as-you-type matching | ✅ via `to_tsquery(:*)` | ✅ built-in | ✅ built-in | ✅ built-in |
+| Faceting / aggregations | ⚠ via raw SQL; no facet API | ✅ first-class | ✅ first-class | ✅ first-class |
+| Highlighting / snippets | ⚠ via `ts_headline`; not auto-wired | ✅ built-in | ✅ built-in | ✅ built-in |
+| Multi-language per row | ❌ one `regconfig` per migration | ✅ per-document | ✅ per-document | ✅ per-document |
+| Synonyms | ❌ defer to your `regconfig` | ✅ first-class | ✅ first-class | ✅ first-class |
+| Geo-search | ⚠ via PostGIS, not this package | ✅ built-in | ✅ built-in | ✅ built-in |
+| Best-fit catalogue size | ~hundreds → low millions of rows | tens of millions | hundreds of millions | hundreds of millions |
 
 If you need faceting, highlighting wired by default, synonyms, multi-language-per-row, or hundreds of millions of records → use a dedicated engine. If you can live with raw-SQL faceting, no auto-snippets, and a single `regconfig` → keep it in Postgres and ship faster.
 
