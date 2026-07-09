@@ -16,7 +16,7 @@ return RectorConfig::configure()
         __DIR__.'/build',
         __DIR__.'/tests/Fixtures',
     ])
-    ->withPhpSets(php85: true)
+    ->withPhpSets(php83: true)
     ->withPreparedSets(
         deadCode: true,
         codeQuality: true,
@@ -25,6 +25,6 @@ return RectorConfig::configure()
         earlyReturn: true,
     )
     ->withSets([
-        LaravelSetList::LARAVEL_130,
+        LaravelSetList::LARAVEL_120,
         LaravelSetList::LARAVEL_CODE_QUALITY,
     ]);

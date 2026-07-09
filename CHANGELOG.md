@@ -5,6 +5,18 @@ All notable changes to `jonaspauleta/scout-postgres` are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2026-07-09
+
+### Changed
+
+- **Breaking:** Dropped Laravel 11 and Laravel Scout 10 support. The package now
+  requires Laravel 12 or 13 and Laravel Scout 11.
+- Updated the development support floor to Testbench 10 and Pest 4 while
+  retaining PHP 8.3 support.
+- Updated Rector to target the minimum supported PHP 8.3 and Laravel 12, and
+  refreshed the CI matrix and actions for PHP 8.3-8.5, Laravel 12-13, Scout 11,
+  and Postgres 18.
+
 ## [1.0.0] - 2026-04-25
 
 First public stable release.
@@ -72,4 +84,5 @@ First public stable release.
 - Postgres 14+ (CI-tested on Postgres 18) with `pg_trgm` ≥ 1.6 and
   `unaccent` ≥ 1.1.
 
+[2.0.0]: https://github.com/jonaspauleta/scout-postgres/releases/tag/v2.0.0
 [1.0.0]: https://github.com/jonaspauleta/scout-postgres/releases/tag/v1.0.0
