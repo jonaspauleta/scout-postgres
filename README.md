@@ -434,7 +434,7 @@ The package is **stable** as of `v1.0.0`. Version `2.0.0` raises the support flo
 
 ## Limitations
 
-By design, this package targets the 80% case. The following are **not** in scope for the `1.x` line:
+By design, this package targets the 80% case. The following are **not** in scope for this package:
 
 - No synonym / stopword customisation beyond what your `regconfig` provides.
 - No relevance feedback / learning-to-rank.
