@@ -90,8 +90,8 @@ If you need faceting, highlighting wired by default, synonyms, multi-language-pe
 | Component       | Version                                                       |
 |-----------------|---------------------------------------------------------------|
 | PHP             | 8.3, 8.4, 8.5                                                 |
-| Laravel         | 11.x, 12.x, 13.x                                              |
-| Laravel Scout   | 10.x, 11.x                                                    |
+| Laravel         | 12.x, 13.x                                                     |
+| Laravel Scout   | 11.x                                                           |
 | Postgres        | 14+ (CI-tested on **Postgres 18**)                            |
 | Extensions      | `pg_trgm` ≥ 1.6, `unaccent` ≥ 1.1                             |
 
@@ -430,7 +430,7 @@ million-row corpora.
 
 ## Stability
 
-The package is **stable** as of `v1.0.0`. The public API — the `postgresSearchable()` migration macro, the `dropPostgresSearchable()` macro, the `PostgresSearchable` contract, the `pgsql` Scout engine driver name, and the keys in `config/scout-postgres.php` — is committed across the entire `1.x` line. Breaking changes will land on a `2.0.0` release tag and will be documented in `CHANGELOG.md` with a migration note.
+The package is **stable** as of `v1.0.0`. Version `2.0.0` raises the support floor to Laravel 12 and Scout 11 without changing the runtime API. The public API includes the `postgresSearchable()` migration macro, the `dropPostgresSearchable()` macro, the `PostgresSearchable` contract, the `pgsql` Scout engine driver name, and the keys in `config/scout-postgres.php`.
 
 ## Limitations
 
