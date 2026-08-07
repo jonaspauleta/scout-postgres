@@ -115,6 +115,12 @@ Run migrations — the package migration is auto-loaded and creates the `pg_trgm
 php artisan migrate
 ```
 
+Publishing migrations (to run your own, you can call `ScoutPostgres\ScoutPostgresServiceProvider::ignoreMigrations()` in a boot method):
+
+```bash
+php artisan vendor:publish --tag=scout-postgres-migrations
+```
+
 ## Configuration
 
 Set Scout to use the `pgsql` engine in your `.env`:

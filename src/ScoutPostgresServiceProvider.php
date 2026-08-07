@@ -12,13 +12,18 @@ use Spatie\LaravelPackageTools\PackageServiceProvider;
 
 final class ScoutPostgresServiceProvider extends PackageServiceProvider
 {
+    private static bool $runsMigrations = true;
+
     public function configurePackage(Package $package): void
     {
         $package
             ->name('scout-postgres')
             ->hasConfigFile('scout-postgres')
-            ->hasMigration('0000_01_01_000000_create_postgres_search_extensions')
-            ->runsMigrations();
+            ->hasMigration('0000_01_01_000000_create_postgres_search_extensions');
+
+        if (self::$runsMigrations) {
+            $package->runsMigrations();
+        }
     }
 
     public function packageBooted(): void
@@ -30,5 +35,10 @@ final class ScoutPostgresServiceProvider extends PackageServiceProvider
         $app->resolving(EngineManager::class, function (EngineManager $manager) use ($app): void {
             $manager->extend('pgsql', fn () => $app->make(PostgresEngine::class));
         });
+    }
+
+    public static function ignoreMigrations(): void
+    {
+        self::$runsMigrations = false;
     }
 }
